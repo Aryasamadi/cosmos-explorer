@@ -1,0 +1,37 @@
+:root {
+  --bg: #04070f;
+  --bg-deep: #02040a;
+  --bg-elevated: #0a1323;
+  --text: #eef4ff;
+  --text-soft: #ccd8ec;
+  --muted: #94a4bd;
+  --faint: #64738d;
+  --gold: #f1c27d;
+  --gold-strong: #ffdda1;
+  --gold-dim: rgba(241, 194, 125, 0.18);
+  --cyan: #7fc8ff;
+  --teal: #67d9c3;
+  --danger: #ff9494;
+  --warning: #ffd37a;
+  --success: #7ce7c0;
+  --line: rgba(166, 195, 235, 0.14);
+  --line-strong: rgba(184, 214, 255, 0.28);
+  --glass: rgba(8, 15, 29, 0.72);
+  --glass-strong: rgba(8, 15, 29, 0.94);
+  --glass-soft: rgba(14, 25, 44, 0.55);
+  --shadow-lg: 0 24px 70px rgba(0, 0, 0, 0.55);
+  --shadow-md: 0 12px 34px rgba(0, 0, 0, 0.38);
+  --radius-xl: 26px;
+  --radius-lg: 18px;
+  --radius-md: 13px;
+  --font: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --header-height: 52px;
+  --header-offset: calc(var(--safe-top) + 72px);
+  --z-header: 40;
+  --z-info: 35;
+  --z-scene-overlay: 26;
+  --z-sheet: 80;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
