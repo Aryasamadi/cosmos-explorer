@@ -9,9 +9,8 @@
 - نسخه: **۰٫۳٫۰**
 - مرحله: کاوشگر قابل اجرا با هستهٔ علمی، زمین جغرافیاییِ پیوسته، روشنایی روز/شب UTC و
   رابط مکان فشرده؛ تست‌شده و مستند.
-- نسخهٔ آنلاین:
+- نسخهٔ آنلاین (تأییدشده در ۲۰۲۶-۱۰-۲۳):
   **[aryasamadi.github.io/cosmos-explorer](https://aryasamadi.github.io/cosmos-explorer/)**
-  (وضعیت آخرین انتشار در [docs/deployment.md](docs/deployment.md) ثبت می‌شود.)
 - مخزن: [github.com/Aryasamadi/cosmos-explorer](https://github.com/Aryasamadi/cosmos-explorer)
 - نمایش پایه، محاسبات نجومی و مکان دستی به سرویس خارجی یا کلید دسترسی وابسته نیستند. برای
   جزئیات خیابانی زمین، کاشی‌های نقشهٔ OpenStreetMap فقط با نزدیک‌شدن دوربین و برای ناحیهٔ
