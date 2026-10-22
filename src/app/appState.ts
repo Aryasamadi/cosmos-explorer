@@ -1,4 +1,5 @@
 import { CORE_BODY_IDS, getBodyById } from '../catalog/bodies';
+import type { GeoLocation } from '../geo/types';
 
 export type AppMode = 'free' | 'sky';
 
@@ -7,6 +8,8 @@ export interface AppState {
   selectedBodyId: string;
   infoOpen: boolean;
   lowPower: boolean;
+  /** The user's selected location on the Earth, shared only by Earth UI. */
+  earthLocation: GeoLocation | null;
 }
 
 export type AppAction =
@@ -14,13 +17,16 @@ export type AppAction =
   | { type: 'select-body'; bodyId: string }
   | { type: 'toggle-info' }
   | { type: 'close-info' }
-  | { type: 'set-low-power'; enabled: boolean };
+  | { type: 'set-low-power'; enabled: boolean }
+  | { type: 'set-earth-location'; location: GeoLocation }
+  | { type: 'clear-earth-location' };
 
 export const initialAppState: AppState = {
   mode: 'free',
   selectedBodyId: 'earth',
   infoOpen: false,
   lowPower: false,
+  earthLocation: null,
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -54,6 +60,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return state.lowPower === action.enabled
         ? state
         : { ...state, lowPower: action.enabled };
+    case 'set-earth-location':
+      return { ...state, earthLocation: action.location };
+    case 'clear-earth-location':
+      return state.earthLocation === null ? state : { ...state, earthLocation: null };
     default:
       return state;
   }

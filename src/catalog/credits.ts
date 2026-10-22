@@ -38,4 +38,14 @@ export const ASSET_CREDITS: AssetCredit[] = [
     sourceUrl: 'https://github.com/rastikerdar/vazirmatn',
     modificationsFa: 'استفاده به‌صورت فایل متغیر WOFF2 بدون تغییر.',
   },
+  {
+    id: 'openstreetmap-tiles',
+    titleFa: 'کاشی‌های نقشهٔ OpenStreetMap',
+    author: 'OpenStreetMap contributors',
+    license: 'ODbL 1.0 و شرایط انتساب کاشی',
+    licenseUrl: 'https://www.openstreetmap.org/copyright',
+    sourceUrl: 'https://operations.osmfoundation.org/policies/tiles/',
+    modificationsFa:
+      'در زمان اجرا و فقط برای ناحیهٔ دیده‌شده از سرویس رسمی tile.openstreetmap.org دریافت می‌شوند؛ در مخزن ذخیره نمی‌شوند.',
+  },
 ];

@@ -64,4 +64,27 @@ describe('application state', () => {
       appReducer(enabled, { type: 'set-low-power', enabled: true }),
     ).toBe(enabled);
   });
+
+  it('keeps an Earth location across mode changes and clears it explicitly', () => {
+    const location = {
+      latitudeDeg: 35.6892,
+      longitudeDeg: 51.389,
+      accuracyM: 20,
+      altitudeM: null,
+      source: 'device' as const,
+      timestampMs: 1_760_000_000_000,
+    };
+    const withLocation = appReducer(initialAppState, {
+      type: 'set-earth-location',
+      location,
+    });
+    expect(withLocation.earthLocation).toEqual(location);
+    const sky = appReducer(withLocation, { type: 'set-mode', mode: 'sky' });
+    expect(sky.earthLocation).toEqual(location);
+    const cleared = appReducer(sky, { type: 'clear-earth-location' });
+    expect(cleared.earthLocation).toBeNull();
+    expect(
+      appReducer(cleared, { type: 'clear-earth-location' }),
+    ).toBe(cleared);
+  });
 });

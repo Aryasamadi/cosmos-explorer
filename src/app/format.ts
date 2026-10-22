@@ -1,5 +1,6 @@
 import type { BodyFact, FactDataType, FactUnit } from '../catalog/types';
 import type { HorizontalCoordinates, ObserverLocation, SkyLightLevel } from '../astronomy/types';
+import type { GeoCoordinate } from '../geo/types';
 
 const PERSIAN_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
 const SUPERSCRIPT_DIGITS = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
@@ -115,7 +116,9 @@ export function formatDistanceKm(distanceKm: number): string {
   return `${formatScientific(distanceKm / 1e6, 4)} میلیون کیلومتر`;
 }
 
-export function formatObserverLocation(location: ObserverLocation): string {
+export function formatObserverLocation(
+  location: ObserverLocation | GeoCoordinate,
+): string {
   const latDirection = location.latitudeDeg >= 0 ? 'شمالی' : 'جنوبی';
   const lonDirection = location.longitudeDeg >= 0 ? 'شرقی' : 'غربی';
   return `${formatAngle(Math.abs(location.latitudeDeg), 3)} ${latDirection}، ${formatAngle(
@@ -156,6 +159,17 @@ export function formatTimezoneName(date: Date): string {
   return new Intl.DateTimeFormat('fa-IR', { timeZoneName: 'short' })
     .formatToParts(date)
     .find((part) => part.type === 'timeZoneName')?.value ?? '';
+}
+
+export function formatAccuracy(accuracyM: number | null): string {
+  if (accuracyM === null || !Number.isFinite(accuracyM)) {
+    return 'شعاع دقت نامشخص';
+  }
+  return `شعاع دقت گزارش‌شده ±${formatNumber(accuracyM, 0)} متر`;
+}
+
+export function formatGeoSource(source: 'device' | 'manual'): string {
+  return source === 'device' ? 'موقعیت دستگاه' : 'ورود دستی';
 }
 
 export const LIGHT_LEVEL_FA: Record<SkyLightLevel, string> = {

@@ -7,6 +7,60 @@ test.use({
   hasTouch: true,
   locale: 'fa-IR',
   timezoneId: 'Asia/Tehran',
+  permissions: ['geolocation'],
+  geolocation: { latitude: 35.6892, longitude: 51.389, accuracy: 30 },
+});
+
+test('missing map tiles do not crash the Earth view', async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  // OSM's tile policy forbids headless bots from forcing tile renders, and CI
+  // must not depend on a third-party service. This test deliberately fails
+  // every tile request and verifies the global fallback stays usable.
+  await page.route('https://tile.openstreetmap.org/**', (route) =>
+    route.abort('failed'),
+  );
+
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'کاوش آزاد' })).toBeVisible();
+  await page.waitForTimeout(1500);
+
+  const webglFallback = page.getByText('نمایش صحنهٔ سه‌بعدی ممکن نشد');
+  if (await webglFallback.isVisible().catch(() => false)) {
+    test.skip(true, 'WebGL is unavailable in this browser run; tile failure cannot be exercised.');
+  }
+
+  await page.getByRole('button', { name: 'موقعیت من روی زمین' }).click();
+  await page.getByRole('button', { name: 'ورود مختصات دستی' }).click();
+  await page.getByPlaceholder('مثلاً 35.6892').fill('35.6892');
+  await page.getByPlaceholder('مثلاً 51.3890').fill('51.389');
+  await page.getByRole('button', { name: 'ثبت این مختصات روی زمین' }).click();
+
+  await expect(page.getByRole('button', { name: /موقعیت شما/ })).toBeVisible();
+  await expect(page.locator('.earth-map-status--error')).toBeVisible({
+    timeout: 40_000,
+  });
+  await expect(page.locator('.map-attribution-corner')).toBeVisible();
+  expect(pageErrors).toEqual([]);
+});
+
+test('device geolocation is shown with its reported accuracy', async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.route('https://tile.openstreetmap.org/**', (route) =>
+    route.abort('failed'),
+  );
+
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'کاوش آزاد' })).toBeVisible();
+  await page.getByRole('button', { name: 'موقعیت من روی زمین' }).click();
+  await page.getByRole('button', { name: 'دریافت موقعیت دستگاه' }).click();
+
+  const locationButton = page.getByRole('button', { name: /موقعیت شما/ });
+  await expect(locationButton).toBeVisible();
+  await expect(locationButton).toContainText('شعاع دقت گزارش‌شده');
+  await expect(locationButton).toContainText('۳۰');
+  expect(pageErrors).toEqual([]);
 });
 
 test('mobile explorer flow: selection, info panel, manual sky location', async ({ page }) => {

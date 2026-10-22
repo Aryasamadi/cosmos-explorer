@@ -69,6 +69,28 @@ describe('application flows', () => {
     expect(within(panel).getByText(/موقعیت در آسمان ناظر/)).toBeInTheDocument();
   });
 
+  it('sets a manual Earth location and keeps the map attribution visible', async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByText(/نمایش صحنهٔ سه‌بعدی ممکن نشد/);
+    await user.click(screen.getByRole('button', { name: 'موقعیت من روی زمین' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'ورود مختصات دستی' }));
+    await user.type(within(dialog).getByPlaceholderText('مثلاً 35.6892'), '35.6892');
+    await user.type(within(dialog).getByPlaceholderText('مثلاً 51.3890'), '51.389');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'ثبت این مختصات روی زمین' }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /موقعیت شما/ }),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText('© OpenStreetMap contributors')).toBeInTheDocument();
+  });
+
   it('shows explicit unsupported messages for sensors and camera without crashing', async () => {
     const originalSensorConstructor = Object.getOwnPropertyDescriptor(
       window,

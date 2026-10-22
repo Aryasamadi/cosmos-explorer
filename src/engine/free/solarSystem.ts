@@ -15,9 +15,10 @@ export interface SolarSystemVisual {
   bodies: Map<string, BodyVisual>;
   interactiveMeshes: THREE.Mesh[];
   earthSpinGroup: THREE.Object3D;
+  earthAtmosphere: THREE.Mesh;
   sunMaterial: THREE.ShaderMaterial;
   selectionRing: THREE.Sprite;
-  update(elapsedSeconds: number, deltaSeconds: number, lowPower: boolean): void;
+  update(elapsedSeconds: number, _deltaSeconds: number, lowPower: boolean): void;
 }
 
 const SUN_POSITION = new THREE.Vector3(22, 7, 24);
@@ -117,6 +118,10 @@ export async function createSolarSystem(
   const earthTilt = new THREE.Group();
   earthTilt.rotation.z = THREE.MathUtils.degToRad(23.44);
   const earthSpinGroup = new THREE.Group();
+  // Geographic east/west is fixed relative to the texture. The old arbitrary
+  // spin moved user markers and map tiles independently of the imagery, so
+  // the Earth is kept geographically stable for this foundation.
+  earthSpinGroup.rotation.y = 2.1;
   const earthMesh = new THREE.Mesh(
     new THREE.SphereGeometry(1, 96, 96),
     new THREE.MeshStandardMaterial({
@@ -125,11 +130,11 @@ export async function createSolarSystem(
       metalness: 0,
     }),
   );
-  earthMesh.rotation.y = 2.1;
   earthMesh.userData.bodyId = 'earth';
   earthSpinGroup.add(earthMesh);
+  const earthAtmosphere = createAtmosphere();
   earthTilt.add(earthSpinGroup);
-  earthTilt.add(createAtmosphere());
+  earthTilt.add(earthAtmosphere);
   root.add(earthTilt);
   bodies.set('earth', { id: 'earth', mesh: earthMesh, radius: 1, position: new THREE.Vector3(0, 0, 0) });
   interactiveMeshes.push(earthMesh);
@@ -272,8 +277,8 @@ export async function createSolarSystem(
   sunlight.target.position.set(0, 0, 0);
   root.add(sunlight);
   root.add(sunlight.target);
-  root.add(new THREE.AmbientLight(0x3b5077, 0.55));
-  const fill = new THREE.DirectionalLight(0x8fb5ff, 0.24);
+  root.add(new THREE.AmbientLight(0x3b5077, 0.82));
+  const fill = new THREE.DirectionalLight(0x8fb5ff, 0.34);
   fill.position.set(0, 2, 10);
   fill.target.position.set(0, 0, 0);
   root.add(fill);
@@ -284,10 +289,10 @@ export async function createSolarSystem(
     bodies,
     interactiveMeshes,
     earthSpinGroup,
+    earthAtmosphere,
     sunMaterial,
     selectionRing,
-    update(elapsedSeconds: number, deltaSeconds: number, lowPower: boolean): void {
-      earthSpinGroup.rotation.y += deltaSeconds * 0.025;
+    update(elapsedSeconds: number, _deltaSeconds: number, lowPower: boolean): void {
       if (!lowPower) {
         sunMaterial.uniforms.uTime!.value = elapsedSeconds;
       }

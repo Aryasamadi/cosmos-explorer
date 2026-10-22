@@ -1,25 +1,44 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getBodyById, getFreeExploreBodies } from '../../catalog/bodies';
 import { useAppDispatch, useAppState } from '../../app/AppStateContext';
+import {
+  formatAccuracy,
+  formatNumber,
+  formatObserverLocation,
+} from '../../app/format';
 import { DISPLAY_SCALE_NOTICE_FA } from '../../config/display';
 import { FreeExploreScene } from '../../engine/free/FreeExploreScene';
+import type { MapDetailStatus } from '../../engine/free/globeTiles';
+import type { GeoLocation } from '../../geo/types';
+import { OSM_RASTER_TILES } from '../../geo/tiles/tileProvider';
 import { useWebGLSupport } from '../../hooks/useWebGLSupport';
 import { CelestialInfoPanel } from '../celestial-info/CelestialInfoPanel';
-import { IconGlobe, IconInfo, IconReset, IconTarget } from '../../components/Icons';
+import { EarthLocationSheet } from './EarthLocationSheet';
+import { IconGlobe, IconInfo, IconPin, IconReset, IconTarget } from '../../components/Icons';
 import { SceneFallback } from '../../components/SceneFallback';
 
 type SceneStatus = 'loading' | 'ready' | 'error';
 
+const EMPTY_MAP_STATUS: MapDetailStatus = {
+  phase: 'idle',
+  zoom: null,
+  loadedTiles: 0,
+  failedTiles: 0,
+};
+
 export function FreeExploreMode() {
-  const { selectedBodyId, infoOpen, lowPower } = useAppState();
+  const { selectedBodyId, infoOpen, lowPower, earthLocation } = useAppState();
   const dispatch = useAppDispatch();
   const support = useWebGLSupport();
   const sceneRef = useRef<FreeExploreScene | null>(null);
+  const pendingGeoFocusRef = useRef(false);
   const [status, setStatus] = useState<SceneStatus>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [contextLost, setContextLost] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [hintVisible, setHintVisible] = useState(true);
+  const [locationSheetOpen, setLocationSheetOpen] = useState(false);
+  const [mapStatus, setMapStatus] = useState<MapDetailStatus>(EMPTY_MAP_STATUS);
 
   const selectedBody = getBodyById(selectedBodyId);
   const freeBodies = getFreeExploreBodies();
@@ -42,6 +61,7 @@ export function FreeExploreMode() {
       void FreeExploreScene.create({
         container: node,
         onSelectBody: (bodyId) => dispatch({ type: 'select-body', bodyId }),
+        onMapStatus: setMapStatus,
         onContextLost: () => setContextLost(true),
         onContextRestored: () => setContextLost(false),
       })
@@ -84,6 +104,15 @@ export function FreeExploreMode() {
     sceneRef.current?.focusBody(selectedBodyId);
   }, [selectedBodyId, status]);
 
+  useEffect(() => {
+    if (status !== 'ready') return;
+    sceneRef.current?.setGeographicLocation(earthLocation);
+    if (earthLocation && pendingGeoFocusRef.current) {
+      sceneRef.current?.focusGeographicLocation(earthLocation);
+      pendingGeoFocusRef.current = false;
+    }
+  }, [earthLocation, status]);
+
   const handleSelectBody = useCallback(
     (bodyId: string) => {
       setHintVisible(false);
@@ -92,12 +121,42 @@ export function FreeExploreMode() {
     [dispatch],
   );
 
+  const handleUseLocation = useCallback(
+    (location: GeoLocation) => {
+      pendingGeoFocusRef.current = true;
+      dispatch({ type: 'set-earth-location', location });
+    },
+    [dispatch],
+  );
+
+  const handleUpdateLocation = useCallback(
+    (location: GeoLocation) => {
+      dispatch({ type: 'set-earth-location', location });
+    },
+    [dispatch],
+  );
+
+  const handleFocusLocation = useCallback((location: GeoLocation) => {
+    sceneRef.current?.focusGeographicLocation(location);
+  }, []);
+
+  const handleClearLocation = useCallback(() => {
+    dispatch({ type: 'clear-earth-location' });
+    sceneRef.current?.clearGeographicLocation();
+  }, [dispatch]);
+
   const handleRetry = (): void => {
     setStatus('loading');
     setErrorMessage(null);
     setContextLost(false);
     setAttempt((value) => value + 1);
   };
+
+  const locationAccuracyText = earthLocation
+    ? earthLocation.source === 'manual'
+      ? 'مختصات دستی؛ دقت دستگاه نامشخص'
+      : formatAccuracy(earthLocation.accuracyM)
+    : null;
 
   return (
     <section className="mode-panel free-mode" aria-label="کاوش آزاد">
@@ -114,6 +173,17 @@ export function FreeExploreMode() {
           <span>مقیاس نمایشی فشرده</span>
         </div>
       </div>
+
+      {mapStatus.phase !== 'idle' ? (
+        <a
+          className="map-attribution-corner"
+          href={OSM_RASTER_TILES.attributionUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          {OSM_RASTER_TILES.attributionText}
+        </a>
+      ) : null}
 
       {effectiveStatus === 'loading' ? (
         <div className="scene-loading" role="status">
@@ -168,6 +238,13 @@ export function FreeExploreMode() {
         </button>
       </div>
 
+      {mapStatus.phase === 'loading' ? (
+        <div className="map-loading-chip" role="status">
+          <span className="spinner" aria-hidden="true" />
+          در حال بارگذاری جزئیات نقشه…
+        </div>
+      ) : null}
+
       <div className="free-bottom">
         {hintVisible ? (
           <div className="hint-bubble" role="status">
@@ -182,6 +259,55 @@ export function FreeExploreMode() {
               ×
             </button>
           </div>
+        ) : null}
+        <div className="earth-location-row">
+          <button
+            type="button"
+            className={`earth-location-pill ${earthLocation ? 'has-location' : ''}`}
+            onClick={() => setLocationSheetOpen(true)}
+            aria-label={
+              earthLocation
+                ? `موقعیت شما: ${formatObserverLocation(earthLocation)}. ${locationAccuracyText ?? ''}`
+                : 'موقعیت من روی زمین'
+            }
+          >
+            <IconPin size={16} />
+            {earthLocation ? (
+              <span className="earth-location-pill__text">
+                <span className="earth-location-pill__title">
+                  موقعیت شما
+                  <small>{locationAccuracyText}</small>
+                </span>
+                <span className="earth-location-pill__coords">
+                  {formatObserverLocation(earthLocation)}
+                </span>
+              </span>
+            ) : (
+              <span className="earth-location-pill__label">موقعیت من روی زمین</span>
+            )}
+          </button>
+          <a
+            className="osm-credit"
+            href={OSM_RASTER_TILES.attributionUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            title="جزئیات نقشه از OpenStreetMap"
+          >
+            {OSM_RASTER_TILES.attributionText}
+          </a>
+        </div>
+        {mapStatus.phase === 'loading' ? (
+          <p className="earth-map-status" role="status">
+            در حال بارگذاری جزئیات نقشه…
+          </p>
+        ) : mapStatus.phase === 'error' ? (
+          <p className="earth-map-status earth-map-status--error" role="status">
+            جزئیات نقشه بارگذاری نشد؛ کرهٔ پایه نمایش داده می‌شود.
+          </p>
+        ) : mapStatus.phase === 'ready' && mapStatus.zoom !== null ? (
+          <p className="earth-map-status">
+            جزئیات نقشه فعال · سطح {formatNumber(mapStatus.zoom, 0)}
+          </p>
         ) : null}
         <div className="body-pills" role="group" aria-label="انتخاب جرم">
           {freeBodies.map((body) => {
@@ -219,6 +345,18 @@ export function FreeExploreMode() {
           mode="free"
           open={infoOpen}
           onClose={() => dispatch({ type: 'close-info' })}
+        />
+      ) : null}
+
+      {locationSheetOpen ? (
+        <EarthLocationSheet
+          open
+          onClose={() => setLocationSheetOpen(false)}
+          location={earthLocation}
+          onUseLocation={handleUseLocation}
+          onUpdateLocation={handleUpdateLocation}
+          onFocus={handleFocusLocation}
+          onClear={handleClearLocation}
         />
       ) : null}
     </section>

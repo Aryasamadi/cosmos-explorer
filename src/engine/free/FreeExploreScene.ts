@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { geodeticToUnitVector } from '../../geo/earthCoordinates';
+import type { GeoLocation } from '../../geo/types';
 import { createStarfield } from '../shared/starfield';
 import { disposeObjectTree, removeCanvas } from '../shared/dispose';
 import { RenderLoop } from '../shared/renderLoop';
@@ -7,16 +9,38 @@ import {
   createSolarSystem,
   type SolarSystemVisual,
 } from './solarSystem';
+import {
+  createEarthLocationLayer,
+  type EarthLocationLayer,
+} from './earthLocationLayer';
+import {
+  createGlobeTileLayer,
+  type GlobeTileLayer,
+  type MapDetailStatus,
+} from './globeTiles';
 
 const OVERVIEW_POSITION = new THREE.Vector3(0, 2.15, 7.4);
 const OVERVIEW_TARGET = new THREE.Vector3(0, 0, 0);
+const GEO_FOCUS_DISTANCE = 1.08;
+const MIN_EARTH_CAMERA_DISTANCE = 1.0006;
 
 export interface FreeExploreSceneOptions {
   container: HTMLElement;
   lowPower?: boolean;
   onSelectBody?: (bodyId: string) => void;
+  onMapStatus?: (status: MapDetailStatus) => void;
   onContextLost?: () => void;
   onContextRestored?: () => void;
+}
+
+interface GeoFocusTween {
+  startSeconds: number;
+  durationSeconds: number;
+  fromDirection: THREE.Vector3;
+  toDirection: THREE.Vector3;
+  fromDistance: number;
+  toDistance: number;
+  rotation: THREE.Quaternion;
 }
 
 interface CameraTween {
@@ -43,6 +67,9 @@ export class FreeExploreScene {
   private readonly camera: THREE.PerspectiveCamera;
   private readonly controls: OrbitControls;
   private readonly visual: SolarSystemVisual;
+  private readonly starfield: THREE.Group;
+  private readonly globeTiles: GlobeTileLayer;
+  private readonly locationLayer: EarthLocationLayer;
   private readonly loop: RenderLoop;
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2();
@@ -51,6 +78,10 @@ export class FreeExploreScene {
   private readonly prefersReducedMotion: boolean;
   private lowPower: boolean;
   private tween: CameraTween | null = null;
+  private geoFocusTween: GeoFocusTween | null = null;
+  private selectedBodyId: string | null = null;
+  private viewportWidth: number;
+  private viewportHeight: number;
   private elapsedSeconds = 0;
   private disposed = false;
   private pointerDown: { x: number; y: number; time: number } | null = null;
@@ -71,10 +102,21 @@ export class FreeExploreScene {
     this.scene.background = new THREE.Color(0x03050c);
     this.scene.add(visual.root);
     const stars = createStarfield(280);
-    this.scene.add(stars.group);
+    this.starfield = stars.group;
+    this.scene.add(this.starfield);
+
+    this.locationLayer = createEarthLocationLayer();
+    visual.earthSpinGroup.add(this.locationLayer.group);
+    this.globeTiles = createGlobeTileLayer({
+      renderer,
+      onStatus: options.onMapStatus,
+    });
+    visual.earthSpinGroup.add(this.globeTiles.group);
 
     const width = Math.max(options.container.clientWidth, 1);
     const height = Math.max(options.container.clientHeight, 1);
+    this.viewportWidth = width;
+    this.viewportHeight = height;
     this.camera = new THREE.PerspectiveCamera(52, width / height, 0.05, 1200);
     this.camera.position.copy(OVERVIEW_POSITION);
     this.controls = new OrbitControls(this.camera, renderer.domElement);
@@ -84,13 +126,14 @@ export class FreeExploreScene {
     this.controls.enablePan = false;
     this.controls.rotateSpeed = 0.55;
     this.controls.zoomSpeed = 0.85;
-    this.controls.minDistance = 1.15;
+    this.controls.minDistance = MIN_EARTH_CAMERA_DISTANCE;
     this.controls.maxDistance = 110;
     this.controls.minPolarAngle = 0.05;
     this.controls.maxPolarAngle = Math.PI - 0.05;
     this.controls.update();
 
     renderer.domElement.style.cursor = 'grab';
+    renderer.domElement.style.touchAction = 'none';
     renderer.domElement.addEventListener('pointerdown', this.handlePointerDown);
     renderer.domElement.addEventListener('pointerup', this.handlePointerUp);
     renderer.domElement.addEventListener('pointermove', this.handlePointerMove);
@@ -158,6 +201,7 @@ export class FreeExploreScene {
   }
 
   selectBody(bodyId: string | null): void {
+    this.selectedBodyId = bodyId;
     const ring = this.visual.selectionRing;
     if (!bodyId) {
       ring.visible = false;
@@ -173,10 +217,45 @@ export class FreeExploreScene {
     ring.visible = true;
   }
 
+  setGeographicLocation(location: GeoLocation | null): void {
+    this.locationLayer.setLocation(location);
+  }
+
+  clearGeographicLocation(): void {
+    this.locationLayer.setLocation(null);
+  }
+
+  /**
+   * Moves the camera above a geographic coordinate. The OrbitControls target
+   * remains the Earth's center so subsequent orbit/zoom gestures remain
+   * predictable; the camera path follows a great-circle arc to avoid passing
+   * through the globe.
+   */
+  focusGeographicLocation(location: GeoLocation): void {
+    this.locationLayer.setLocation(location);
+    const local = geodeticToUnitVector(location.latitudeDeg, location.longitudeDeg);
+    this.visual.earthSpinGroup.updateWorldMatrix(true, false);
+    const worldQuaternion = new THREE.Quaternion();
+    this.visual.earthSpinGroup.getWorldQuaternion(worldQuaternion);
+    const direction = new THREE.Vector3(local.x, local.y, local.z)
+      .applyQuaternion(worldQuaternion)
+      .normalize();
+    // The free-look controls cannot coherently look straight down the world
+    // Y axis at a pole; nudge the camera a few thousandths of a radian away.
+    if (Math.abs(direction.y) > 0.9995) {
+      direction.x += 0.02;
+      direction.z += 0.02;
+      direction.normalize();
+    }
+    this.controls.minDistance = MIN_EARTH_CAMERA_DISTANCE;
+    this.startGeoFocus(direction, GEO_FOCUS_DISTANCE);
+  }
+
   focusBody(bodyId: string): void {
     const body = this.visual.bodies.get(bodyId);
     if (!body) return;
 
+    this.geoFocusTween = null;
     if (bodyId === 'earth') {
       this.resetOverview();
       return;
@@ -209,7 +288,8 @@ export class FreeExploreScene {
   }
 
   resetOverview(): void {
-    this.controls.minDistance = 1.15;
+    this.geoFocusTween = null;
+    this.controls.minDistance = MIN_EARTH_CAMERA_DISTANCE;
     this.startTween(OVERVIEW_POSITION.clone(), OVERVIEW_TARGET.clone());
   }
 
@@ -233,6 +313,8 @@ export class FreeExploreScene {
       this.handleContextRestored,
     );
     this.controls.dispose();
+    this.globeTiles.dispose();
+    this.locationLayer.dispose();
     disposeObjectTree(this.scene);
     const canvas = this.renderer.domElement;
     this.renderer.dispose();
@@ -241,6 +323,7 @@ export class FreeExploreScene {
   }
 
   private startTween(toPosition: THREE.Vector3, toTarget: THREE.Vector3): void {
+    this.geoFocusTween = null;
     this.controls.enabled = false;
     this.tween = {
       startSeconds: this.elapsedSeconds,
@@ -252,10 +335,75 @@ export class FreeExploreScene {
     };
   }
 
+  private startGeoFocus(toDirection: THREE.Vector3, distance: number): void {
+    this.tween = null;
+    this.controls.enabled = false;
+    this.controls.target.copy(OVERVIEW_TARGET);
+    const fromDirection = this.camera.position.clone().normalize();
+    const fromDistance = this.camera.position.length();
+    const rotation = new THREE.Quaternion().setFromUnitVectors(
+      fromDirection,
+      toDirection,
+    );
+    this.geoFocusTween = {
+      startSeconds: this.elapsedSeconds,
+      durationSeconds: this.prefersReducedMotion ? 0.2 : 1.15,
+      fromDirection,
+      toDirection: toDirection.clone(),
+      fromDistance: Math.max(fromDistance, distance),
+      toDistance: Math.max(distance, MIN_EARTH_CAMERA_DISTANCE),
+      rotation,
+    };
+  }
+
+  private updateEarthProximity(): void {
+    const distance = this.camera.position.length();
+    const lookingAtEarth = this.controls.target.lengthSq() < 0.01;
+    const closeUp = lookingAtEarth && distance < 1.25;
+    const near = closeUp ? Math.max(0.00002, (distance - 1) * 0.05) : 0.05;
+    const far = closeUp ? Math.max(0.08, (distance - 1) * 50 + 0.08) : 1200;
+    if (Math.abs(this.camera.near - near) > 1e-7 || Math.abs(this.camera.far - far) > 1e-3) {
+      this.camera.near = near;
+      this.camera.far = far;
+      this.camera.updateProjectionMatrix();
+    }
+    this.starfield.visible = !closeUp;
+    this.visual.earthAtmosphere.visible = !(lookingAtEarth && distance < 1.06);
+    this.visual.selectionRing.visible =
+      this.selectedBodyId !== null && !(lookingAtEarth && distance < 2.1);
+  }
+
   private renderFrame(elapsed: number, delta: number): void {
     this.elapsedSeconds = elapsed;
 
-    if (this.tween) {
+    if (this.geoFocusTween) {
+      const tween = this.geoFocusTween;
+      const rawProgress = Math.min(
+        1,
+        Math.max(0, (elapsed - tween.startSeconds) / tween.durationSeconds),
+      );
+      const progress = easeInOutCubic(rawProgress);
+      const partialRotation = new THREE.Quaternion().slerpQuaternions(
+        new THREE.Quaternion(),
+        tween.rotation,
+        progress,
+      );
+      const direction = tween.fromDirection
+        .clone()
+        .applyQuaternion(partialRotation)
+        .normalize();
+      const distance = THREE.MathUtils.lerp(
+        tween.fromDistance,
+        tween.toDistance,
+        progress,
+      );
+      this.camera.position.copy(direction.multiplyScalar(distance));
+      this.controls.target.copy(OVERVIEW_TARGET);
+      if (rawProgress >= 1) {
+        this.geoFocusTween = null;
+        this.controls.enabled = true;
+      }
+    } else if (this.tween) {
       const rawProgress = Math.min(
         1,
         Math.max(0, (elapsed - this.tween.startSeconds) / this.tween.durationSeconds),
@@ -274,6 +422,15 @@ export class FreeExploreScene {
     }
 
     this.controls.update();
+    this.updateEarthProximity();
+    this.globeTiles.update({
+      camera: this.camera,
+      earthGroup: this.visual.earthSpinGroup,
+      target: this.controls.target,
+      viewportWidth: this.viewportWidth,
+      viewportHeight: this.viewportHeight,
+      deltaSeconds: delta,
+    });
     if (!this.prefersReducedMotion) {
       this.visual.update(elapsed, delta, this.lowPower);
     }
@@ -284,6 +441,8 @@ export class FreeExploreScene {
     if (this.disposed) return;
     const width = Math.max(this.options.container.clientWidth, 1);
     const height = Math.max(this.options.container.clientHeight, 1);
+    this.viewportWidth = width;
+    this.viewportHeight = height;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(materialPixelRatio(this.lowPower));
@@ -310,7 +469,7 @@ export class FreeExploreScene {
     if (!start) return;
     const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
     const duration = performance.now() - start.time;
-    if (moved > 8 || duration > 900 || this.tween) return;
+    if (moved > 8 || duration > 900 || this.tween || this.geoFocusTween) return;
 
     this.updateRaycaster(event);
     const hits = this.raycaster.intersectObjects(this.visual.interactiveMeshes, false);
