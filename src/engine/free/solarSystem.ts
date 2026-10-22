@@ -277,8 +277,8 @@ export async function createSolarSystem(
   sunlight.target.position.set(0, 0, 0);
   root.add(sunlight);
   root.add(sunlight.target);
-  root.add(new THREE.AmbientLight(0x3b5077, 0.82));
-  const fill = new THREE.DirectionalLight(0x8fb5ff, 0.34);
+  root.add(new THREE.AmbientLight(0x3b5077, 0.55));
+  const fill = new THREE.DirectionalLight(0x8fb5ff, 0.24);
   fill.position.set(0, 2, 10);
   fill.target.position.set(0, 0, 0);
   root.add(fill);
