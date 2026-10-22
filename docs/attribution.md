@@ -19,6 +19,31 @@
 مجوز: [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/).
 این پروژه به Solar System Scope وابسته نیست و تأییدیه‌ای از آن ندارد.
 
+## کاشی‌های نقشهٔ زمان اجرا
+
+- منبع: **OpenStreetMap Standard raster tiles**
+- URL: `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
+- انتساب اجباری و نمایش‌داده‌شده: **© OpenStreetMap contributors**
+- مجوز داده: [Open Database License (ODbL)](https://www.openstreetmap.org/copyright)
+- سیاست رسمی استفاده: <https://operations.osmfoundation.org/policies/tiles/>
+- بررسی‌شده در: ۲۰۲۶-۱۰-۲۲
+
+شرایط کلیدی: بدون کلید API؛ فقط نمایش تعاملی ناحیهٔ دیده‌شده؛ ممنوعیت bulk download،
+prefetch چندسطحی، آفلاین‌سازی و ربات‌هایی که برای رندر pan/zoom می‌کنند؛ انتساب آشکار؛
+ارسال Referer معتبر توسط مرورگر؛ کش حداقل هفت‌روزه. این سرویس **best-effort** است و
+SLA یا ظرفیت تضمین‌شده ندارد. کاشی‌ها کارتوگرافی هستند، نه تصویر ماهواره‌ای.
+
+در این پروژه:
+
+- انتساب در گوشهٔ نمای زمین هنگام فعال‌بودن جزئیات و در برگهٔ مکان دیده می‌شود.
+- Cache Storage با TTL هفت‌روزه و سقف ۱۲۰ ورودی استفاده می‌شود؛ هیچ prefetch یا
+  دانلود آفلاین انجام نمی‌شود.
+- درخواست کاشی فقط برای شبکهٔ حداکثر ۳×۳ اطراف ناحیهٔ دیده‌شده و پس از توقف دوربین
+  انجام می‌شود.
+- تست‌های خودکار Playwright درخواست‌های OSM را مسدود می‌کنند.
+- هیچ کلید، توکن یا اعتبارنامه‌ای برای این سرویس لازم یا ذخیره نمی‌شود.
+- این پروژه به OpenStreetMap Foundation وابسته نیست و تأییدیه‌ای از آن ندارد.
+
 ## قلم
 
 - **Vazirmatn** (وزیرمتن) — The Vazirmatn Project Authors
@@ -37,6 +62,7 @@
 | [NASA NSSDCA — Mars Fact Sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html) | مشخصات مریخ |
 | [SIMBAD Astronomical Database](https://simbad.cds.unistra.fr/simbad/) | مختصات J2000، قدر ظاهری و ردهٔ طیفی ستارگان |
 | [Astronomy Engine](https://github.com/cosinekitty/astronomy) | ephemeris، سیدرال تایم، پیش‌روی، روشنایی؛ مجوز MIT |
+| [OpenStreetMap](https://www.openstreetmap.org/copyright) | کاشی‌های کارتوگرافی زمان اجرا برای نمای محلی زمین؛ ODbL |
 
 داده‌های NASA مطابق رویهٔ عمومی استفاده از رسانه‌های NASA با ذکر منبع استفاده شده‌اند.
 استفاده از نام NASA به معنی تأیید این پروژه توسط NASA نیست.
@@ -56,5 +82,5 @@
 
 ## نام‌ها و نشان‌ها
 
-نام‌های NASA، JPL، SIMBAD، Astronomy Engine و Solar System Scope متعلق به صاحبان
-مربوط است. این پروژه یک پروژهٔ مستقل است.
+نام‌های NASA، JPL، SIMBAD، Astronomy Engine، Solar System Scope و OpenStreetMap
+متعلق به صاحبان مربوط است. این پروژه یک پروژهٔ مستقل است.
