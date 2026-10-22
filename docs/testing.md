@@ -30,6 +30,9 @@ CI همین مراحل را پیش از هر انتشار اجرا می‌کند
 - `lint`: بدون خطا و بدون warning.
 - `typecheck`: بدون خطا با TypeScript strict.
 - `build`: موفق.
+- انتشار GitHub Pages در ۲۰۲۶-۱۰-۲۲ با آدرس
+  <https://aryasamadi.github.io/cosmos-explorer/> تأیید شد: HTTP 200، بدون خطای
+  کنسول/شبکه در Chrome واقعی، viewport ۳۹۰×۸۴۴، بدون سرریز افقی.
 - آزمون سخت‌افزاری واقعی روی گوشی انجام نشده است. آزمون‌های مرورگر با Chrome Headless و
   شبیه‌سازی حسگر/دوربین انجام شده‌اند.
 

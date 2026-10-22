@@ -8,11 +8,12 @@
 
 - نسخه: **۰٫۱٫۰**
 - مرحله: کاوشگر قابل اجرا با هستهٔ علمی، تست‌شده و مستند.
-- نسخهٔ آنلاین: هنوز روی GitHub Pages منتشر نشده است. پس از موفقیت انتشار، لینک تأییدشده
-  در همین بخش قرار می‌گیرد. راهنمای انتشار در
-  [docs/deployment.md](docs/deployment.md) آمده است.
+- نسخهٔ آنلاین (تأییدشده در ۲۰۲۶-۱۰-۲۲):
+  **[aryasamadi.github.io/cosmos-explorer](https://aryasamadi.github.io/cosmos-explorer/)**
+- مخزن: [github.com/Aryasamadi/cosmos-explorer](https://github.com/Aryasamadi/cosmos-explorer)
 - اجرای برنامه فقط با فایل‌های همین مخزن انجام می‌شود؛ برای نمایش صحنه و محاسبات، API خارجی
   یا کلید دسترسی لازم نیست.
+- راهنمای انتشار در [docs/deployment.md](docs/deployment.md) آمده است.
 
 ## اکنون چه چیزهایی کار می‌کنند؟
 
@@ -52,6 +53,9 @@
 - ESLint
 
 ## اجرای محلی
+
+نسخهٔ منتشرشده روی GitHub Pages از HTTPS استفاده می‌کند و برای آزمایش مجوزهای گوشی مناسب
+است. برای توسعهٔ محلی:
 
 پیش‌نیاز: Node.js نسخهٔ ۲۲٫۱۲ یا جدیدتر و npm.
 
