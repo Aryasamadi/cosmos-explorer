@@ -10,6 +10,7 @@
 | دارایی | منبع | مجوز | تغییرات |
 | --- | --- | --- | --- |
 | `src/assets/textures/earth.jpg` | [NASA Earth Observatory — Blue Marble Next Generation, July 2004](https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73751/world.topo.bathy.200407.3x5400x2700.jpg) | NASA media، عمومی با ذکر منبع | تغییر اندازه به ۲۰۴۸×۱۰۲۴ و فشرده‌سازی JPEG |
+| `src/assets/textures/night-lights.jpg` | [NASA Earth Observatory — Black Marble 2012 (Suomi NPP VIIRS)](https://eoimages.gsfc.nasa.gov/images/imagerecords/79000/79765/dnb_land_ocean_ice.2012.3600x1800.jpg) | NASA media، عمومی با ذکر منبع | تغییر اندازه به ۱۰۲۴×۵۱۲ و فشرده‌سازی JPEG |
 | `src/assets/textures/moon.jpg` | [NASA Scientific Visualization Studio — CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) | NASA media، عمومی با ذکر منبع | تغییر اندازه به ۱۰۲۴×۵۱۲ و فشرده‌سازی JPEG |
 | `src/assets/textures/mars.jpg` | [Solar System Scope — 2k Mars](https://www.solarsystemscope.com/textures/) | CC BY 4.0 | تغییر اندازه به ۱۰۲۴×۵۱۲ و فشرده‌سازی JPEG |
 
@@ -62,6 +63,7 @@ SLA یا ظرفیت تضمین‌شده ندارد. کاشی‌ها کارتوگ
 | [NASA NSSDCA — Mars Fact Sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html) | مشخصات مریخ |
 | [SIMBAD Astronomical Database](https://simbad.cds.unistra.fr/simbad/) | مختصات J2000، قدر ظاهری و ردهٔ طیفی ستارگان |
 | [Astronomy Engine](https://github.com/cosinekitty/astronomy) | ephemeris، سیدرال تایم، پیش‌روی، روشنایی؛ مجوز MIT |
+| [NASA Earth Observatory — Black Marble](https://earthobservatory.nasa.gov/features/NightLights) | چراغ‌های شب زمین برای سمت شب صحنه؛ دادهٔ ثابت ۲۰۱۲ |
 | [OpenStreetMap](https://www.openstreetmap.org/copyright) | کاشی‌های کارتوگرافی زمان اجرا برای نمای محلی زمین؛ ODbL |
 
 داده‌های NASA مطابق رویهٔ عمومی استفاده از رسانه‌های NASA با ذکر منبع استفاده شده‌اند.

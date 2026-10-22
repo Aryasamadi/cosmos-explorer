@@ -100,6 +100,45 @@ describe('device geolocation acquisition', () => {
     }
   });
 
+  it('falls back once to a coarse fix when a high-accuracy fix times out', async () => {
+    const getCurrentPosition = vi.fn(
+      (success: PositionCallback, error: PositionErrorCallback, options?: PositionOptions) => {
+        if (options?.enableHighAccuracy) {
+          error({ code: 3, message: 'timeout' } as GeolocationPositionError);
+          return;
+        }
+        success(makePosition(35.7, 51.4, 900));
+      },
+    ) as unknown as Geolocation['getCurrentPosition'];
+    const environment = makeEnvironment({ getCurrentPosition });
+
+    const location = await acquireDeviceLocation({ environment });
+
+    expect(location).toMatchObject({
+      latitudeDeg: 35.7,
+      longitudeDeg: 51.4,
+      accuracyM: 900,
+      source: 'device',
+    });
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(getCurrentPosition).mock.calls[1]?.[2]).toMatchObject({
+      enableHighAccuracy: false,
+      maximumAge: 60_000,
+    });
+  });
+
+  it('does not fall back to coarse positioning after permission denial', async () => {
+    const getCurrentPosition = vi.fn((_success, error: PositionErrorCallback) => {
+      error({ code: 1, message: 'denied' } as GeolocationPositionError);
+    }) as unknown as Geolocation['getCurrentPosition'];
+    const environment = makeEnvironment({ getCurrentPosition });
+
+    await expect(acquireDeviceLocation({ environment })).rejects.toMatchObject({
+      code: 'permission-denied',
+    });
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+  });
+
   it('reports unsupported and insecure contexts before calling the browser', async () => {
     const unsupported = makeEnvironment({ geolocation: null });
     await expect(acquireDeviceLocation({ environment: unsupported })).rejects.toMatchObject({

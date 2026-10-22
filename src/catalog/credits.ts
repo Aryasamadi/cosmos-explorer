@@ -12,6 +12,16 @@ export const ASSET_CREDITS: AssetCredit[] = [
     modificationsFa: 'تغییر اندازه به ۲۰۴۸×۱۰۲۴ و فشرده‌سازی JPEG برای کاهش حجم.',
   },
   {
+    id: 'night-lights-texture',
+    titleFa: 'چراغ‌های شب زمین (Black Marble 2012)',
+    author: 'NASA Earth Observatory / Suomi NPP VIIRS',
+    license: 'Public domain (NASA)',
+    licenseUrl: 'https://www.nasa.gov/nasa-brand-center/images-and-media/',
+    sourceUrl:
+      'https://eoimages.gsfc.nasa.gov/images/imagerecords/79000/79765/dnb_land_ocean_ice.2012.3600x1800.jpg',
+    modificationsFa: 'تغییر اندازه به ۱۰۲۴×۵۱۲ و فشرده‌سازی JPEG برای کاهش حجم.',
+  },
+  {
     id: 'moon-texture',
     titleFa: 'بافت ماه (CGI Moon Kit / LROC color map)',
     author: 'NASA Scientific Visualization Studio / LRO',

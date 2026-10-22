@@ -34,7 +34,8 @@ export interface AcquireDeviceLocationOptions {
   environment?: DeviceLocationEnvironment;
 }
 
-const DEFAULT_TIMEOUT_MS = 12_000;
+const DEFAULT_TIMEOUT_MS = 8_000;
+const COARSE_TIMEOUT_MS = 9_000;
 const DEFAULT_REFINE_MS = 8_000;
 const DEFAULT_TARGET_ACCURACY_M = 20;
 
@@ -111,21 +112,21 @@ function abortError(): DeviceLocationError {
 export function describeDeviceLocationErrorFa(code: DeviceLocationErrorCode): string {
   switch (code) {
     case 'unsupported':
-      return 'این مرورگر از موقعیت مکانی دستگاه پشتیبانی نمی‌کند. می‌توانید مختصات را دستی وارد کنید.';
+      return 'این مرورگر از موقعیت مکانی پشتیبانی نمی‌کند؛ مختصات را دستی وارد کنید.';
     case 'insecure-context':
-      return 'دسترسی به موقعیت مکانی فقط در صفحهٔ HTTPS یا localhost ممکن است. نسخهٔ آنلاین سایت از HTTPS استفاده می‌کند.';
+      return 'برای دریافت موقعیت، صفحه باید HTTPS باشد؛ مختصات را دستی وارد کنید.';
     case 'permission-denied':
-      return 'اجازهٔ دسترسی به موقعیت مکانی داده نشد. می‌توانید مختصات را دستی وارد کنید.';
+      return 'اجازهٔ موقعیت داده نشد. از تنظیمات مرورگر اجازه دهید یا مختصات را دستی وارد کنید.';
     case 'unavailable':
-      return 'موقعیت مکانی در دسترس نیست. GPS یا سرویس مکان دستگاه را بررسی کنید.';
+      return 'موقعیت در دسترس نیست؛ GPS را بررسی کنید یا مختصات را دستی وارد کنید.';
     case 'timeout':
-      return 'دریافت موقعیت مکانی بیش از حد طول کشید. دوباره تلاش کنید یا مختصات را دستی وارد کنید.';
+      return 'دریافت موقعیت طول کشید؛ دوباره تلاش کنید.';
     case 'aborted':
-      return 'درخواست موقعیت مکانی لغو شد.';
+      return 'درخواست موقعیت لغو شد.';
     case 'invalid-position':
-      return 'دستگاه مختصات معتبری برنگرداند. دوباره تلاش کنید یا مختصات را دستی وارد کنید.';
+      return 'موقعیت معتبری دریافت نشد؛ دوباره تلاش کنید.';
     default:
-      return 'دریافت موقعیت مکانی با خطا روبه‌رو شد. گزینهٔ ورود دستی مختصات در دسترس است.';
+      return 'دریافت موقعیت ناموفق بود؛ مختصات را دستی وارد کنید.';
   }
 }
 
@@ -231,7 +232,7 @@ export async function acquireDeviceLocation(
 
   const mode = options.mode ?? 'quick';
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const positionOptions: PositionOptions = {
+  const highAccuracyOptions: PositionOptions = {
     enableHighAccuracy: true,
     timeout: timeoutMs,
     maximumAge: 0,
@@ -240,42 +241,71 @@ export async function acquireDeviceLocation(
   if (mode === 'refine') {
     return watchForBestFix(
       geolocation,
-      positionOptions,
+      highAccuracyOptions,
       options.refineMs ?? DEFAULT_REFINE_MS,
       options.targetAccuracyM ?? DEFAULT_TARGET_ACCURACY_M,
       options.signal,
     );
   }
 
-  const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-    if (options.signal?.aborted) {
-      reject(abortError());
-      return;
-    }
-    const onAbort = (): void => reject(abortError());
-    options.signal?.addEventListener('abort', onAbort, { once: true });
+  const requestSingleFix = async (
+    positionOptions: PositionOptions,
+  ): Promise<GeoLocation> => {
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      if (options.signal?.aborted) {
+        reject(abortError());
+        return;
+      }
+      const onAbort = (): void => reject(abortError());
+      options.signal?.addEventListener('abort', onAbort, { once: true });
+      try {
+        geolocation.getCurrentPosition(
+          (result) => {
+            options.signal?.removeEventListener('abort', onAbort);
+            resolve(result);
+          },
+          (error) => {
+            options.signal?.removeEventListener('abort', onAbort);
+            reject(mapPositionError(error));
+          },
+          positionOptions,
+        );
+      } catch {
+        options.signal?.removeEventListener('abort', onAbort);
+        reject(new DeviceLocationError('error', 'The geolocation request could not start.'));
+      }
+    });
+
     try {
-      geolocation.getCurrentPosition(
-        (result) => {
-          options.signal?.removeEventListener('abort', onAbort);
-          resolve(result);
-        },
-        (error) => {
-          options.signal?.removeEventListener('abort', onAbort);
-          reject(mapPositionError(error));
-        },
-        positionOptions,
-      );
-    } catch {
-      options.signal?.removeEventListener('abort', onAbort);
-      reject(new DeviceLocationError('error', 'The geolocation request could not start.'));
+      return toGeoLocation(position);
+    } catch (error) {
+      if (error instanceof DeviceLocationError) throw error;
+      throw new DeviceLocationError('invalid-position', 'Invalid position.');
     }
-  });
+  };
 
   try {
-    return toGeoLocation(position);
+    return await requestSingleFix(highAccuracyOptions);
   } catch (error) {
-    if (error instanceof DeviceLocationError) throw error;
-    throw new DeviceLocationError('invalid-position', 'Invalid position.');
+    // A high-accuracy fix can time out indoors or on devices without a GPS
+    // lock. Try one coarse browser-provided fix before reporting failure;
+    // never repeat this automatically. The UI always shows the reported
+    // accuracy radius and never labels a coarse fix as exact GPS.
+    if (
+      error instanceof DeviceLocationError &&
+      (error.code === 'timeout' || error.code === 'unavailable') &&
+      !options.signal?.aborted
+    ) {
+      try {
+        return await requestSingleFix({
+          enableHighAccuracy: false,
+          timeout: COARSE_TIMEOUT_MS,
+          maximumAge: 60_000,
+        });
+      } catch (coarseError) {
+        if (coarseError instanceof DeviceLocationError) throw coarseError;
+      }
+    }
+    throw error;
   }
 }

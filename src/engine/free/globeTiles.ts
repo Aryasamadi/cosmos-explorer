@@ -50,8 +50,6 @@ export interface GlobeTileLayer {
 interface TileSlot {
   mesh: THREE.Mesh;
   material: THREE.MeshBasicMaterial;
-  opacity: number;
-  finalized: boolean;
 }
 
 interface CachedTexture {
@@ -59,7 +57,7 @@ interface CachedTexture {
   lastUsed: number;
 }
 
-function createTileGeometry(tile: TileCoordinate): THREE.BufferGeometry {
+export function createTileGeometry(tile: TileCoordinate): THREE.BufferGeometry {
   const bounds = tileBounds(tile);
   const segments = tile.zoom <= 5 ? 8 : tile.zoom <= 10 ? 4 : 2;
   const positions: number[] = [];
@@ -89,7 +87,8 @@ function createTileGeometry(tile: TileCoordinate): THREE.BufferGeometry {
       const b = a + 1;
       const c = a + row;
       const d = c + 1;
-      indices.push(a, b, c, b, d, c);
+      // Outward-facing winding for a sphere surface.
+      indices.push(a, c, b, b, c, d);
     }
   }
 
@@ -120,9 +119,26 @@ async function trimPersistentCache(cache: Cache): Promise<void> {
  * OSM requires at least seven days of local caching when response caching
  * headers cannot be used; the cache entry carries its own timestamp.
  */
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name?: string }).name === 'AbortError'
+  );
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  const error = new Error('The tile request was cancelled.');
+  error.name = 'AbortError';
+  throw error;
+}
+
 async function loadTileBlob(
   url: string,
   provider: RasterTileProvider,
+  signal?: AbortSignal,
 ): Promise<Blob> {
   const canUseCache =
     typeof caches !== 'undefined' && typeof window !== 'undefined' && window.isSecureContext;
@@ -130,6 +146,7 @@ async function loadTileBlob(
   if (canUseCache) {
     try {
       cache = await caches.open(TILE_CACHE_NAME);
+      throwIfAborted(signal);
       const cached = await cache.match(url);
       if (cached) {
         const cachedAt = Number(cached.headers.get('x-cached-at'));
@@ -137,23 +154,29 @@ async function loadTileBlob(
           Number.isFinite(cachedAt) &&
           Date.now() - cachedAt <= provider.cacheMaxAgeMs;
         if (fresh) {
-          return await cached.blob();
+          const blob = await cached.blob();
+          throwIfAborted(signal);
+          return blob;
         }
         await cache.delete(url);
       }
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) throw error;
       cache = null;
     }
   }
 
+  throwIfAborted(signal);
   const response = await fetch(url, {
     mode: 'cors',
     credentials: 'omit',
+    signal,
   });
   if (!response.ok) {
     throw new Error(`Tile request failed with HTTP ${response.status}.`);
   }
   const blob = await response.blob();
+  throwIfAborted(signal);
   if (!blob.size) {
     throw new Error('Tile response was empty.');
   }
@@ -183,6 +206,7 @@ export function createGlobeTileLayer(
   const meshes = new Map<string, TileSlot>();
   const textures = new Map<string, CachedTexture>();
   const pending = new Map<string, Promise<THREE.Texture | null>>();
+  const controllers = new Map<string, AbortController>();
   const failedAt = new Map<string, number>();
   const desiredKeys = new Set<string>();
   const desiredTiles = new Map<string, TileCoordinate>();
@@ -234,6 +258,8 @@ export function createGlobeTileLayer(
   const clear = (): void => {
     for (const key of [...meshes.keys()]) disposeSlot(key);
     disposeAllTextures();
+    for (const controller of controllers.values()) controller.abort();
+    controllers.clear();
     desiredKeys.clear();
     desiredTiles.clear();
     queue.length = 0;
@@ -248,13 +274,15 @@ export function createGlobeTileLayer(
   const addMesh = (tile: TileCoordinate, texture: THREE.Texture): void => {
     const key = tileKey(tile);
     if (meshes.has(key) || !desiredKeys.has(key)) return;
+    // Tiles are opaque. They must never use transparency as a loading state:
+    // the base Earth must remain solid if a tile is missing or delayed.
     const material = new THREE.MeshBasicMaterial({
       map: texture,
-      transparent: true,
-      opacity: 0,
+      transparent: false,
+      opacity: 1,
       depthWrite: true,
       depthTest: true,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       toneMapped: false,
       polygonOffset: true,
       polygonOffsetFactor: -2,
@@ -264,12 +292,7 @@ export function createGlobeTileLayer(
     mesh.renderOrder = 5;
     mesh.userData.tileKey = key;
     group.add(mesh);
-    meshes.set(key, {
-      mesh,
-      material,
-      opacity: 0,
-      finalized: false,
-    });
+    meshes.set(key, { mesh, material });
   };
 
   const trimTextureCache = (): void => {
@@ -314,8 +337,11 @@ export function createGlobeTileLayer(
     if (pending.has(key)) return;
     activeLoads += 1;
     const url = tileUrl(provider, tile);
-    const promise = loadTileBlob(url, provider)
+    const controller = new AbortController();
+    controllers.set(key, controller);
+    const promise = loadTileBlob(url, provider, controller.signal)
       .then(async (blob) => {
+        if (controller.signal.aborted) return null;
         const objectUrl = URL.createObjectURL(blob);
         try {
           const texture = await textureLoader.loadAsync(objectUrl);
@@ -344,17 +370,23 @@ export function createGlobeTileLayer(
           URL.revokeObjectURL(objectUrl);
         }
       })
-      .catch(() => {
-        if (desiredKeys.has(key)) {
+      .catch((error: unknown) => {
+        if (!isAbortError(error) && desiredKeys.has(key)) {
           failedAt.set(key, Date.now() + RETRY_AFTER_MS);
         }
         return null;
       })
       .finally(() => {
         pending.delete(key);
+        if (controllers.get(key) === controller) controllers.delete(key);
         activeLoads -= 1;
-        pump();
         if (!disposed) {
+          // The camera can return to a set while its previous request is still
+          // being cancelled; restart that tile instead of leaving a gap.
+          const stillWanted = desiredKeys.has(key) && !meshes.has(key) && !failedAt.has(key);
+          const wantedTile = desiredTiles.get(key);
+          if (stillWanted && wantedTile) requestTile(wantedTile);
+          pump();
           if (desiredKeys.size === 0) {
             notify('idle');
             return;
@@ -414,6 +446,9 @@ export function createGlobeTileLayer(
     for (const key of [...failedAt.keys()]) {
       if (!desiredKeys.has(key)) failedAt.delete(key);
     }
+    for (const [key, controller] of controllers) {
+      if (!desiredKeys.has(key)) controller.abort();
+    }
 
     let hasMissing = false;
     for (const tile of selectedTiles) {
@@ -434,20 +469,8 @@ export function createGlobeTileLayer(
 
   return {
     group,
-    update({ camera, earthGroup, target, viewportWidth, viewportHeight, deltaSeconds }) {
+    update({ camera, earthGroup, target, viewportWidth, viewportHeight }) {
       if (disposed) return;
-
-      for (const slot of meshes.values()) {
-        if (slot.opacity < 1) {
-          slot.opacity = Math.min(1, slot.opacity + deltaSeconds * 4);
-          slot.material.opacity = slot.opacity;
-          if (slot.opacity >= 1 && !slot.finalized) {
-            slot.finalized = true;
-            slot.material.transparent = false;
-            slot.material.needsUpdate = true;
-          }
-        }
-      }
 
       const now = performance.now();
 

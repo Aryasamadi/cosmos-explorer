@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import earthTextureUrl from '../../assets/textures/earth.jpg?url';
+import nightLightsTextureUrl from '../../assets/textures/night-lights.jpg?url';
 import moonTextureUrl from '../../assets/textures/moon.jpg?url';
 import marsTextureUrl from '../../assets/textures/mars.jpg?url';
 
@@ -16,6 +17,8 @@ export interface SolarSystemVisual {
   interactiveMeshes: THREE.Mesh[];
   earthSpinGroup: THREE.Object3D;
   earthAtmosphere: THREE.Mesh;
+  earthMaterial: THREE.ShaderMaterial;
+  setSubsolarDirection(direction: { x: number; y: number; z: number }): void;
   sunMaterial: THREE.ShaderMaterial;
   selectionRing: THREE.Sprite;
   update(elapsedSeconds: number, _deltaSeconds: number, lowPower: boolean): void;
@@ -106,11 +109,14 @@ export async function createSolarSystem(
   const root = new THREE.Group();
   root.name = 'solar-system';
   const loader = new THREE.TextureLoader();
-  const [earthTexture, moonTexture, marsTexture] = await Promise.all([
+  const [earthTexture, nightLightsTexture, moonTexture, marsTexture] = await Promise.all([
     loadTexture(loader, earthTextureUrl, renderer),
+    loadTexture(loader, nightLightsTextureUrl, renderer),
     loadTexture(loader, moonTextureUrl, renderer),
     loadTexture(loader, marsTextureUrl, renderer),
   ]);
+  earthTexture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  nightLightsTexture.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
 
   const bodies = new Map<string, BodyVisual>();
   const interactiveMeshes: THREE.Mesh[] = [];
@@ -122,13 +128,68 @@ export async function createSolarSystem(
   // spin moved user markers and map tiles independently of the imagery, so
   // the Earth is kept geographically stable for this foundation.
   earthSpinGroup.rotation.y = 2.1;
+  const earthMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      dayMap: { value: earthTexture },
+      nightMap: { value: nightLightsTexture },
+      uSunDirection: { value: new THREE.Vector3(1, 0, 0) },
+      uCityLightIntensity: { value: 1.25 },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      void main() {
+        vUv = uv;
+        vNormal = normalize(normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      #include <common>
+
+      uniform sampler2D dayMap;
+      uniform sampler2D nightMap;
+      uniform vec3 uSunDirection;
+      uniform float uCityLightIntensity;
+
+      varying vec2 vUv;
+      varying vec3 vNormal;
+
+      void main() {
+        vec3 normal = normalize(vNormal);
+        float sunDot = dot(normal, normalize(uSunDirection));
+        float dayFactor = smoothstep(-0.10, 0.14, sunDot);
+        float cityMask = 1.0 - smoothstep(-0.16, 0.04, sunDot);
+
+        vec3 dayColor = texture2D(dayMap, vUv).rgb;
+        vec3 nightLights = texture2D(nightMap, vUv).rgb;
+
+        // Keep continents recognizable at night; never crush the dark side
+        // to pure black. This is a display baseline, not a physical radiance.
+        vec3 nightBase = dayColor * vec3(0.055, 0.075, 0.12);
+        nightBase += dayColor * 0.025;
+        vec3 nightColor = nightBase +
+          nightLights * vec3(1.0, 0.84, 0.58) * uCityLightIntensity * cityMask;
+
+        vec3 dayLit = dayColor * (0.34 + 1.08 * max(sunDot, 0.0));
+        vec3 color = mix(nightColor, dayLit, dayFactor);
+
+        gl_FragColor = vec4(color, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+    transparent: false,
+    depthWrite: true,
+    depthTest: true,
+    side: THREE.FrontSide,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
+  });
   const earthMesh = new THREE.Mesh(
     new THREE.SphereGeometry(1, 96, 96),
-    new THREE.MeshStandardMaterial({
-      map: earthTexture,
-      roughness: 0.92,
-      metalness: 0,
-    }),
+    earthMaterial,
   );
   earthMesh.userData.bodyId = 'earth';
   earthSpinGroup.add(earthMesh);
@@ -234,7 +295,7 @@ export async function createSolarSystem(
     opacity: 0.8,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
-    depthTest: false,
+    depthTest: true,
     toneMapped: false,
   });
   const glow = new THREE.Sprite(glowMaterial);
@@ -290,6 +351,14 @@ export async function createSolarSystem(
     interactiveMeshes,
     earthSpinGroup,
     earthAtmosphere,
+    earthMaterial,
+    setSubsolarDirection(direction): void {
+      earthMaterial.uniforms.uSunDirection!.value.set(
+        direction.x,
+        direction.y,
+        direction.z,
+      ).normalize();
+    },
     sunMaterial,
     selectionRing,
     update(elapsedSeconds: number, _deltaSeconds: number, lowPower: boolean): void {

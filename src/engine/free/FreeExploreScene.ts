@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { computeSubsolarPoint } from '../../astronomy/ephemeris/subsolarPoint';
 import { geodeticToUnitVector } from '../../geo/earthCoordinates';
+import {
+  clampCameraDistance,
+  computeEarthNavigationSensitivity,
+} from '../../geo/earthNavigation';
 import type { GeoLocation } from '../../geo/types';
 import { createStarfield } from '../shared/starfield';
 import { disposeObjectTree, removeCanvas } from '../shared/dispose';
@@ -83,6 +88,7 @@ export class FreeExploreScene {
   private viewportWidth: number;
   private viewportHeight: number;
   private elapsedSeconds = 0;
+  private lastLightingUpdateMs = 0;
   private disposed = false;
   private pointerDown: { x: number; y: number; time: number } | null = null;
 
@@ -145,6 +151,7 @@ export class FreeExploreScene {
         ? null
         : new ResizeObserver(() => this.resize());
     this.resizeObserver?.observe(options.container);
+    this.updateEarthLighting(true);
 
     this.loop = new RenderLoop((elapsed, delta) => this.renderFrame(elapsed, delta));
     this.loop.start();
@@ -356,18 +363,55 @@ export class FreeExploreScene {
     };
   }
 
+  private updateEarthLighting(force = false): void {
+    const nowMs = Date.now();
+    if (!force && nowMs - this.lastLightingUpdateMs < 30_000) {
+      return;
+    }
+    this.lastLightingUpdateMs = nowMs;
+    const subsolar = computeSubsolarPoint(new Date(nowMs));
+    const direction = geodeticToUnitVector(
+      subsolar.latitudeDeg,
+      subsolar.longitudeDeg,
+    );
+    this.visual.setSubsolarDirection(direction);
+  }
+
+  private enforceEarthCollision(): void {
+    const distance = this.camera.position.length();
+    if (distance < MIN_EARTH_CAMERA_DISTANCE) {
+      this.camera.position.setLength(
+        clampCameraDistance(distance, MIN_EARTH_CAMERA_DISTANCE),
+      );
+    }
+  }
+
   private updateEarthProximity(): void {
     const distance = this.camera.position.length();
     const lookingAtEarth = this.controls.target.lengthSq() < 0.01;
-    const closeUp = lookingAtEarth && distance < 1.25;
-    const near = closeUp ? Math.max(0.00002, (distance - 1) * 0.05) : 0.05;
-    const far = closeUp ? Math.max(0.08, (distance - 1) * 50 + 0.08) : 1200;
+    const earthDetailActive = lookingAtEarth && distance < 3.2;
+    const height = Math.max(distance - 1, 0.0003);
+    const near = earthDetailActive
+      ? Math.max(0.00012, height * 0.25)
+      : 0.05;
+    const far = earthDetailActive
+      ? Math.max(0.5, height * 25 + 0.5)
+      : 1200;
     if (Math.abs(this.camera.near - near) > 1e-7 || Math.abs(this.camera.far - far) > 1e-3) {
       this.camera.near = near;
       this.camera.far = far;
       this.camera.updateProjectionMatrix();
     }
-    this.starfield.visible = !closeUp;
+
+    const sensitivity = lookingAtEarth
+      ? computeEarthNavigationSensitivity(distance, this.camera.fov)
+      : { rotateSpeed: 0.55, zoomSpeed: 0.85 };
+    this.controls.rotateSpeed = sensitivity.rotateSpeed;
+    this.controls.zoomSpeed = sensitivity.zoomSpeed;
+
+    // No background bodies may show through the local Earth view. The base is
+    // opaque; hiding the distant starfield also keeps the night side readable.
+    this.starfield.visible = !earthDetailActive;
     this.visual.earthAtmosphere.visible = !(lookingAtEarth && distance < 1.06);
     this.visual.selectionRing.visible =
       this.selectedBodyId !== null && !(lookingAtEarth && distance < 2.1);
@@ -421,16 +465,23 @@ export class FreeExploreScene {
       }
     }
 
+    this.enforceEarthCollision();
     this.controls.update();
     this.updateEarthProximity();
-    this.globeTiles.update({
-      camera: this.camera,
-      earthGroup: this.visual.earthSpinGroup,
-      target: this.controls.target,
-      viewportWidth: this.viewportWidth,
-      viewportHeight: this.viewportHeight,
-      deltaSeconds: delta,
-    });
+    this.updateEarthLighting();
+    // Do not request tile sets for intermediate camera positions during a
+    // fly-to. The 260 ms settle alone can be exceeded by a slow frame and
+    // would otherwise waste a request wave mid-animation.
+    if (!this.geoFocusTween && !this.tween) {
+      this.globeTiles.update({
+        camera: this.camera,
+        earthGroup: this.visual.earthSpinGroup,
+        target: this.controls.target,
+        viewportWidth: this.viewportWidth,
+        viewportHeight: this.viewportHeight,
+        deltaSeconds: delta,
+      });
+    }
     if (!this.prefersReducedMotion) {
       this.visual.update(elapsed, delta, this.lowPower);
     }

@@ -113,8 +113,9 @@ describe('EarthLocationSheet', () => {
 
     await user.click(screen.getByRole('button', { name: 'دریافت موقعیت دستگاه' }));
     expect(
-      await screen.findByText(/اجازهٔ دسترسی به موقعیت مکانی داده نشد/),
+      await screen.findByText(/اجازهٔ موقعیت داده نشد/),
     ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'تلاش دوباره' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'ورود مختصات دستی' })).toBeInTheDocument();
   });
 
@@ -144,17 +145,18 @@ describe('EarthLocationSheet', () => {
     await waitFor(() => expect(props.onUpdateLocation).toHaveBeenCalledTimes(1));
     const improved = props.onUpdateLocation.mock.calls[0]?.[0] as GeoLocation;
     expect(improved.accuracyM).toBe(12);
-    expect(await screen.findByText(/دقت گزارش‌شده بهبود یافت/)).toBeInTheDocument();
+    expect(await screen.findByText('دقت بهبود یافت.')).toBeInTheDocument();
     expect(props.onUseLocation).not.toHaveBeenCalled();
   });
 
-  it('shows the required OpenStreetMap attribution and limitations', () => {
+  it('shows a compact sheet with the required OpenStreetMap attribution', () => {
     renderSheet();
-    expect(screen.getByRole('heading', { name: 'جزئیات نقشه' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'موقعیت من' })).toBeInTheDocument();
+    expect(screen.queryByText('جزئیات نقشه')).not.toBeInTheDocument();
     expect(
       screen.getAllByRole('link', { name: /OpenStreetMap contributors/ }).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole('link', { name: /شرایط استفادهٔ سرویس کاشی/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /شرایط سرویس نقشه/ })).toHaveAttribute(
       'href',
       expect.stringContaining('operations.osmfoundation.org'),
     );
