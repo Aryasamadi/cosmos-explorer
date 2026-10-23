@@ -388,6 +388,15 @@
   color: var(--warning);
 }
 
+.earth-imagery-status {
+  margin: 0;
+  color: var(--faint);
+  font-size: 8px;
+  line-height: 1.5;
+  text-align: center;
+  pointer-events: none;
+}
+
 .body-pills {
   display: flex;
   justify-content: flex-start;

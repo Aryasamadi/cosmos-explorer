@@ -2,6 +2,7 @@ import type { GeoCoordinate } from '../types';
 
 export const WEB_MERCATOR_MAX_LAT = 85.0511287798066;
 export const DEFAULT_TILE_SIZE = 256;
+const MAX_VIEW_PIXEL_RATIO = 2;
 
 export interface TileCoordinate {
   zoom: number;
@@ -24,6 +25,7 @@ export interface TileView {
   fovDeg: number;
   viewportWidth: number;
   viewportHeight: number;
+  pixelRatio?: number;
   maxZoom?: number;
   maxTiles?: number;
 }
@@ -125,14 +127,18 @@ export function tileBounds(tile: TileCoordinate): TileBounds {
   };
 }
 
+function wrapLongitudeDifference(longitudeDeg: number, centerDeg: number): number {
+  return ((((longitudeDeg - centerDeg + 180) % 360) + 360) % 360) - 180;
+}
+
 /**
- * Chooses a small, camera-driven raster tile set for the visible globe area.
+ * Chooses a bounded, camera-driven raster tile set for the visible globe area.
  *
- * The camera is assumed to look at the Earth center (the free-explore
- * camera does). At most a 3×3 grid is requested around the nadir, matching
- * OSM's "visible viewport with modest look-ahead" policy. At wide screens
- * the zoom is lowered until that grid covers the visible angular extent, so
- * the base NASA texture remains visible beyond the requested tiles.
+ * The camera is assumed to look at the Earth center (the free-explore camera
+ * does). The zoom follows the physical drawing-buffer density, then is lowered
+ * until all tiles intersecting the viewport fit the request budget. Only
+ * visible/near-visible tiles are requested; there is no multi-level prefetch.
+ * At wide screens the base NASA texture remains visible beyond the tile set.
  */
 export function selectGlobeTiles(view: TileView): GlobeTileSelection {
   const {
@@ -142,8 +148,9 @@ export function selectGlobeTiles(view: TileView): GlobeTileSelection {
     fovDeg,
     viewportWidth,
     viewportHeight,
+    pixelRatio = 1,
     maxZoom = 19,
-    maxTiles = 9,
+    maxTiles = 16,
   } = view;
   if (
     !Number.isFinite(latitudeDeg) ||
@@ -160,6 +167,8 @@ export function selectGlobeTiles(view: TileView): GlobeTileSelection {
     !Number.isFinite(viewportHeight) ||
     viewportWidth <= 0 ||
     viewportHeight <= 0 ||
+    !Number.isFinite(pixelRatio) ||
+    pixelRatio <= 0 ||
     !Number.isInteger(maxZoom) ||
     maxZoom < 0 ||
     maxZoom > 22 ||
@@ -181,9 +190,10 @@ export function selectGlobeTiles(view: TileView): GlobeTileSelection {
   // Approximate ground angular half-extents for a camera looking at the center.
   const alphaVDeg = Math.atan(height * tanV) * RAD_TO_DEG;
   const alphaHDeg = Math.atan(height * tanH) * RAD_TO_DEG;
+  const effectivePixelRatio = Math.min(pixelRatio, MAX_VIEW_PIXEL_RATIO);
   const pixelsPerDegree = Math.min(
-    viewportHeight / Math.max(2 * alphaVDeg, 1e-9),
-    viewportWidth / Math.max(2 * alphaHDeg, 1e-9),
+    (viewportHeight * effectivePixelRatio) / Math.max(2 * alphaVDeg, 1e-9),
+    (viewportWidth * effectivePixelRatio) / Math.max(2 * alphaHDeg, 1e-9),
   );
 
   let zoom = clamp(
@@ -191,41 +201,66 @@ export function selectGlobeTiles(view: TileView): GlobeTileSelection {
     0,
     maxZoom,
   );
-  const cosineLat = Math.max(0.15, Math.cos(latitudeDeg * DEG_TO_RAD));
-  const requiredWidthDeg = 2 * alphaHDeg;
-  const requiredHeightDeg = 2 * alphaVDeg;
+  const latitude = clamp(latitudeDeg, -WEB_MERCATOR_MAX_LAT, WEB_MERCATOR_MAX_LAT);
+  const cosineLat = Math.max(0.15, Math.cos(latitude * DEG_TO_RAD));
+  const longitudeHalfDeg = Math.min(180, alphaHDeg / cosineLat);
+  const northLat = clamp(
+    latitude + alphaVDeg,
+    -WEB_MERCATOR_MAX_LAT,
+    WEB_MERCATOR_MAX_LAT,
+  );
+  const southLat = clamp(
+    latitude - alphaVDeg,
+    -WEB_MERCATOR_MAX_LAT,
+    WEB_MERCATOR_MAX_LAT,
+  );
 
-  // A 3×3 grid must cover the visible extent; trade resolution for coverage.
-  while (zoom > 0) {
-    const tileAngular = 360 / 2 ** zoom;
-    const coveredWidth = 3 * tileAngular * cosineLat;
-    const coveredHeight = 3 * tileAngular;
-    if (coveredWidth >= requiredWidthDeg && coveredHeight >= requiredHeightDeg) {
-      break;
-    }
-    zoom -= 1;
-  }
-
-  const center = lonLatToTile(latitudeDeg, longitudeDeg, zoom);
-  const unique = new Map<string, TileCoordinate>();
-  const gridRadius = maxTiles >= 9 ? 1 : 0;
-  for (let dy = -gridRadius; dy <= gridRadius; dy += 1) {
-    for (let dx = -gridRadius; dx <= gridRadius; dx += 1) {
+  for (; zoom >= 0; zoom -= 1) {
+    const spanLonDeg = 360 / 2 ** zoom;
+    const center = lonLatToTile(latitude, longitudeDeg, zoom);
+    const yStart = lonLatToTile(northLat, longitudeDeg, zoom).y;
+    const yEnd = lonLatToTile(southLat, longitudeDeg, zoom).y;
+    const xCandidates: number[] = [];
+    const maxDx = Math.min(2 ** zoom, Math.ceil(longitudeHalfDeg / spanLonDeg) + 1);
+    for (let dx = -maxDx; dx <= maxDx; dx += 1) {
       const x = normalizeTileX(center.x + dx, zoom);
-      const y = clampTileY(center.y + dy, zoom);
-      const tile = { zoom, x, y };
-      unique.set(tileKey(tile), tile);
-      if (unique.size >= maxTiles) break;
+      const centerLon = (x + 0.5) * spanLonDeg - 180;
+      if (
+        Math.abs(wrapLongitudeDifference(centerLon, longitudeDeg)) <=
+        longitudeHalfDeg + spanLonDeg / 2
+      ) {
+        if (!xCandidates.includes(x)) xCandidates.push(x);
+      }
     }
-    if (unique.size >= maxTiles) break;
+
+    const candidates: TileCoordinate[] = [];
+    for (const x of xCandidates) {
+      for (let y = yStart; y <= yEnd; y += 1) {
+        candidates.push({ zoom, x, y: clampTileY(y, zoom) });
+      }
+    }
+    if (candidates.length === 0 || candidates.length > maxTiles) continue;
+
+    const centerY = center.y;
+    candidates.sort((a, b) => {
+      const aDx = Math.abs(wrapLongitudeDifference(a.x, center.x));
+      const bDx = Math.abs(wrapLongitudeDifference(b.x, center.x));
+      const aDistance = Math.hypot(aDx, a.y - centerY);
+      const bDistance = Math.hypot(bDx, b.y - centerY);
+      return aDistance - bDistance;
+    });
+    const unique = new Map<string, TileCoordinate>();
+    for (const tile of candidates) unique.set(tileKey(tile), tile);
+
+    return {
+      zoom,
+      tiles: [...unique.values()],
+      requiredTileCount: unique.size,
+      pixelsPerDegree,
+    };
   }
 
-  return {
-    zoom,
-    tiles: [...unique.values()],
-    requiredTileCount: unique.size,
-    pixelsPerDegree,
-  };
+  return { zoom: null, tiles: [], requiredTileCount: 0, pixelsPerDegree };
 }
 
 export function tileContainsCoordinate(tile: TileCoordinate, coordinate: GeoCoordinate): boolean {

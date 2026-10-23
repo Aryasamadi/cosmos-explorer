@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createTileGeometry } from './globeTiles';
+import { EARTH_DETAIL_SURFACE_RADIUS } from './earthDetailGeometry';
+import { OSM_TILE_RADIUS, createTileGeometry } from './globeTiles';
 
 describe('globe tile surface geometry', () => {
   it('uses outward-facing winding so FrontSide tiles are visible', () => {
@@ -33,5 +34,23 @@ describe('globe tile surface geometry', () => {
     expect(uvs.getY(0)).toBeCloseTo(1, 6);
     expect(positions.getY(0)).toBeGreaterThan(0);
     geometry.dispose();
+  });
+
+  it('keeps every flat tile chord above the detail and base surfaces', () => {
+    for (const zoom of [0, 1, 3, 5, 7, 14]) {
+      const geometry = createTileGeometry({
+        zoom,
+        x: Math.min(1, 2 ** zoom - 1),
+        y: 0,
+      });
+      const vertexCount = geometry.getAttribute('position').count;
+      const segments = Math.round(Math.sqrt(vertexCount)) - 1;
+      const faceAngleRad =
+        ((360 / 2 ** zoom) / segments) * (Math.PI / 180);
+      const sagitta = 1 - Math.cos(faceAngleRad / 2);
+      expect(OSM_TILE_RADIUS - sagitta).toBeGreaterThan(EARTH_DETAIL_SURFACE_RADIUS);
+      expect(OSM_TILE_RADIUS - sagitta).toBeGreaterThan(1);
+      geometry.dispose();
+    }
   });
 });

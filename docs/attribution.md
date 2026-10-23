@@ -9,10 +9,23 @@
 
 | دارایی | منبع | مجوز | تغییرات |
 | --- | --- | --- | --- |
-| `src/assets/textures/earth.jpg` | [NASA Earth Observatory — Blue Marble Next Generation, July 2004](https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73751/world.topo.bathy.200407.3x5400x2700.jpg) | NASA media، عمومی با ذکر منبع | تغییر اندازه به ۲۰۴۸×۱۰۲۴ و فشرده‌سازی JPEG |
-| `src/assets/textures/night-lights.jpg` | [NASA Earth Observatory — Black Marble 2012 (Suomi NPP VIIRS)](https://eoimages.gsfc.nasa.gov/images/imagerecords/79000/79765/dnb_land_ocean_ice.2012.3600x1800.jpg) | NASA media، عمومی با ذکر منبع | تغییر اندازه به ۱۰۲۴×۵۱۲ و فشرده‌سازی JPEG |
+| `src/assets/textures/earth.webp` | [NASA Earth Observatory — Blue Marble Next Generation, July 2004](https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73751/world.topo.bathy.200407.3x21600x10800.jpg) | NASA media، مالکیت عمومی NASA با ذکر منبع | تغییر اندازه به ۲۰۴۸×۱۰۲۴ و فشرده‌سازی WebP |
+| `public/earth-detail/v1/**` | همان منبع روز بالا؛ تصویر رنگ RGB | NASA media، مالکیت عمومی NASA با ذکر منبع | کاشی‌های ۵۱۲px با حاشیهٔ ۸px در سطوح ۴۰۹۶، ۸۱۹۲ و ۱۶۳۸۴؛ WebP |
+| `src/assets/textures/night-lights.webp` | [NASA/GSFC — Black Marble 2016 (Suomi NPP VIIRS)](https://eoimages.gsfc.nasa.gov/images/imagerecords/144000/144898/BlackMarble_2016_3km.jpg) | NASA media، مالکیت عمومی NASA با ذکر منبع | تغییر اندازه به ۱۰۲۴×۵۱۲؛ WebP |
+| کانال آلفای `public/earth-detail/v1/**` | همان Black Marble 2016 با ابعاد منبع ۱۳۵۰۰×۶۷۵۰ | NASA media، مالکیت عمومی NASA با ذکر منبع | luminosity چراغ‌ها در کانال آلفای همان کاشی روز؛ برای پرهیز از تکسچر دوم GPU |
 | `src/assets/textures/moon.jpg` | [NASA Scientific Visualization Studio — CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) | NASA media، عمومی با ذکر منبع | تغییر اندازه به ۱۰۲۴×۵۱۲ و فشرده‌سازی JPEG |
 | `src/assets/textures/mars.jpg` | [Solar System Scope — 2k Mars](https://www.solarsystemscope.com/textures/) | CC BY 4.0 | تغییر اندازه به ۱۰۲۴×۵۱۲ و فشرده‌سازی JPEG |
+
+- منبع روز اصلی ۲۱۶۰۰×۱۰۸۰۰ است؛ کاشی حداکثری همراه برنامه ۱۶۳۸۴×۸۱۹۲ (دورترین سطح
+  واقعی که در بودجهٔ این نسخه بارگذاری می‌شود) است.
+- منبع شب ۱۳۵۰۰×۶۷۵۰ است و در سطح حداکثر به شبکهٔ همان کاشی روز نگاشت می‌شود؛ بنابراین
+  جزئیات چراغ‌های شب از منبع شب بیشتر نیست.
+- لایه‌ها فقط برای نمای دیده‌شده و به‌صورت lazy از همان ميزبان برنامه بارگذاری می‌شوند؛
+  هیچ دانلود کامل کره یا بستهٔ آفلاین در استارتاپ انجام نمی‌شود.
+- کاشی‌های تصویر همچنان کارتوگرافی نیستند و با کاشی‌های OSM یکی گرفته نمی‌شوند. ابعاد
+  ۵۱۲px، پدینگ ۸px و فشرده‌سازی WebP برای کنترل حجم انتقال و حافظهٔ GPU انتخاب شده‌اند.
+- تولید دوبارهٔ دارایی‌ها با `scripts/generate-earth-detail.py` و Pillow انجام می‌شود؛
+  این ابزار توسعه است و وابستگی runtime نیست.
 
 ### انتساب CC BY 4.0 برای بافت مریخ
 
@@ -39,11 +52,13 @@ SLA یا ظرفیت تضمین‌شده ندارد. کاشی‌ها کارتوگ
 - انتساب در گوشهٔ نمای زمین هنگام فعال‌بودن جزئیات و در برگهٔ مکان دیده می‌شود.
 - Cache Storage با TTL هفت‌روزه و سقف ۱۲۰ ورودی استفاده می‌شود؛ هیچ prefetch یا
   دانلود آفلاین انجام نمی‌شود.
-- درخواست کاشی فقط برای شبکهٔ حداکثر ۳×۳ اطراف ناحیهٔ دیده‌شده و پس از توقف دوربین
-  انجام می‌شود.
+- درخواست کاشی فقط برای ناحیهٔ دیده‌شده، حداکثر ۱۶ کاشی در هر مجموعه و پس از توقف
+  دوربین انجام می‌شود؛ کاشی‌های چندسطحی یا مجاور پشت دوربین prefetch نمی‌شوند.
 - تست‌های خودکار Playwright درخواست‌های OSM را مسدود می‌کنند.
 - هیچ کلید، توکن یا اعتبارنامه‌ای برای این سرویس لازم یا ذخیره نمی‌شود.
 - این پروژه به OpenStreetMap Foundation وابسته نیست و تأییدیه‌ای از آن ندارد.
+- تصویر ماهواره‌ای NASA Blue Marble از کاشی OSM جدا است؛ هیچ‌کدام به‌جای دیگری معرفی
+  نمی‌شوند.
 
 ## قلم
 
@@ -63,7 +78,7 @@ SLA یا ظرفیت تضمین‌شده ندارد. کاشی‌ها کارتوگ
 | [NASA NSSDCA — Mars Fact Sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html) | مشخصات مریخ |
 | [SIMBAD Astronomical Database](https://simbad.cds.unistra.fr/simbad/) | مختصات J2000، قدر ظاهری و ردهٔ طیفی ستارگان |
 | [Astronomy Engine](https://github.com/cosinekitty/astronomy) | ephemeris، سیدرال تایم، پیش‌روی، روشنایی؛ مجوز MIT |
-| [NASA Earth Observatory — Black Marble](https://earthobservatory.nasa.gov/features/NightLights) | چراغ‌های شب زمین برای سمت شب صحنه؛ دادهٔ ثابت ۲۰۱۲ |
+| [NASA Earth Observatory — Black Marble 2016](https://earthobservatory.nasa.gov/features/NightLights) | چراغ‌های شب زمین برای سمت شب صحنه؛ دادهٔ ثابت ۲۰۱۶ |
 | [OpenStreetMap](https://www.openstreetmap.org/copyright) | کاشی‌های کارتوگرافی زمان اجرا برای نمای محلی زمین؛ ODbL |
 
 داده‌های NASA مطابق رویهٔ عمومی استفاده از رسانه‌های NASA با ذکر منبع استفاده شده‌اند.

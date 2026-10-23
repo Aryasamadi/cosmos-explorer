@@ -88,11 +88,11 @@ describe('camera-driven globe LOD', () => {
     expect(selection.tiles).toEqual([]);
   });
 
-  it('requests a bounded 3x3 tile set near the visible area', () => {
+  it('requests a bounded visible tile set near the nadir', () => {
     const selection = selectGlobeTiles(baseView);
     expect(selection.zoom).not.toBeNull();
     expect(selection.tiles.length).toBeGreaterThan(0);
-    expect(selection.tiles.length).toBeLessThanOrEqual(9);
+    expect(selection.tiles.length).toBeLessThanOrEqual(16);
     const keys = selection.tiles.map(tileKey);
     expect(new Set(keys).size).toBe(keys.length);
     expect(selection.tiles.every((tile) => tile.zoom === selection.zoom)).toBe(true);
@@ -117,7 +117,7 @@ describe('camera-driven globe LOD', () => {
     expect(close.zoom).not.toBeNull();
     expect(near.zoom ?? 0).toBeGreaterThan(far.zoom ?? 0);
     expect(close.zoom ?? 0).toBeGreaterThan(near.zoom ?? 0);
-    expect(close.tiles.length).toBeLessThanOrEqual(9);
+    expect(close.tiles.length).toBeLessThanOrEqual(16);
   });
 
   it('reduces zoom for wide screens to preserve bounded coverage', () => {
@@ -130,7 +130,22 @@ describe('camera-driven globe LOD', () => {
     expect(portrait.zoom).not.toBeNull();
     expect(landscape.zoom).not.toBeNull();
     expect(landscape.zoom ?? 0).toBeLessThanOrEqual(portrait.zoom ?? 0);
-    expect(landscape.tiles.length).toBeLessThanOrEqual(9);
+    expect(landscape.tiles.length).toBeLessThanOrEqual(16);
+  });
+
+  it('uses physical drawing-buffer density while staying within the tile budget', () => {
+    const css = selectGlobeTiles({ ...baseView, pixelRatio: 1 });
+    const retina = selectGlobeTiles({ ...baseView, pixelRatio: 2 });
+    expect(retina.pixelsPerDegree ?? 0).toBeCloseTo((css.pixelsPerDegree ?? 0) * 2, 6);
+    expect(retina.zoom ?? 0).toBeGreaterThanOrEqual(css.zoom ?? 0);
+    expect(css.tiles.length).toBeLessThanOrEqual(16);
+    expect(retina.tiles.length).toBeLessThanOrEqual(16);
+  });
+
+  it('honors a smaller explicit viewport tile budget', () => {
+    const selection = selectGlobeTiles({ ...baseView, maxTiles: 5 });
+    expect(selection.tiles.length).toBeGreaterThan(0);
+    expect(selection.tiles.length).toBeLessThanOrEqual(5);
   });
 
   it('clamps requested zoom to the provider maximum', () => {

@@ -12,7 +12,7 @@ import {
   type RasterTileProvider,
 } from '../../geo/tiles/tileProvider';
 
-const TILE_RADIUS = 1.000035;
+export const OSM_TILE_RADIUS = 1.0001;
 const RETRY_AFTER_MS = 30_000;
 const MAX_TEXTURE_CACHE = 18;
 const TILE_CACHE_NAME = 'cosmos-explorer-osm-tiles-v1';
@@ -59,7 +59,12 @@ interface CachedTexture {
 
 export function createTileGeometry(tile: TileCoordinate): THREE.BufferGeometry {
   const bounds = tileBounds(tile);
-  const segments = tile.zoom <= 5 ? 8 : tile.zoom <= 10 ? 4 : 2;
+  // Keep each flat triangle's chord above the satellite detail layer:
+  // sagitta <= ~5e-5 Earth radii at the lowest zoom. This prevents the
+  // low-poly sphere and the overlay meshes from punching diamonds through
+  // one another while still avoiding excessive vertex counts.
+  const spanDeg = 360 / 2 ** tile.zoom;
+  const segments = Math.min(384, Math.max(2, Math.ceil(spanDeg / 1.1)));
   const positions: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
@@ -72,9 +77,9 @@ export function createTileGeometry(tile: TileCoordinate): THREE.BufferGeometry {
       const longitude = bounds.westLon + (bounds.eastLon - bounds.westLon) * u;
       const direction = geodeticToUnitVector(latitude, longitude);
       positions.push(
-        direction.x * TILE_RADIUS,
-        direction.y * TILE_RADIUS,
-        direction.z * TILE_RADIUS,
+        direction.x * OSM_TILE_RADIUS,
+        direction.y * OSM_TILE_RADIUS,
+        direction.z * OSM_TILE_RADIUS,
       );
       uvs.push(u, 1 - v);
     }
@@ -511,8 +516,9 @@ export function createGlobeTileLayer(
         fovDeg: camera.fov,
         viewportWidth,
         viewportHeight,
+        pixelRatio: options.renderer.getPixelRatio(),
         maxZoom: provider.maxZoom,
-        maxTiles: 9,
+        maxTiles: 16,
       });
       if (selection.zoom === null || selection.tiles.length === 0) {
         if (signature !== '') clear();

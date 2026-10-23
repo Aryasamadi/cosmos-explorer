@@ -3,23 +3,25 @@ import type { AssetCredit } from './types';
 export const ASSET_CREDITS: AssetCredit[] = [
   {
     id: 'earth-texture',
-    titleFa: 'بافت زمین (Blue Marble Next Generation، ژوئیهٔ ۲۰۰۴)',
+    titleFa: 'بافت پایه و جزئیات زمین (Blue Marble Next Generation، ژوئیهٔ ۲۰۰۴)',
     author: 'NASA Earth Observatory / Reto Stöckli',
     license: 'Public domain (NASA)',
     licenseUrl: 'https://www.nasa.gov/nasa-brand-center/images-and-media/',
     sourceUrl:
-      'https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73751/world.topo.bathy.200407.3x5400x2700.jpg',
-    modificationsFa: 'تغییر اندازه به ۲۰۴۸×۱۰۲۴ و فشرده‌سازی JPEG برای کاهش حجم.',
+      'https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73751/world.topo.bathy.200407.3x21600x10800.jpg',
+    modificationsFa:
+      'بافت پایه به ۲۰۴۸×۱۰۲۴ و کاشی‌های جزئیات تا ۱۶۳۸۴×۸۱۹۲ با فاصلهٔ حاشیهٔ ۸ پیکسل، تبدیل به WebP.',
   },
   {
     id: 'night-lights-texture',
-    titleFa: 'چراغ‌های شب زمین (Black Marble 2012)',
-    author: 'NASA Earth Observatory / Suomi NPP VIIRS',
+    titleFa: 'چراغ‌های شب زمین (Black Marble 2016 در کانال آلفا)',
+    author: 'NASA/GSFC، VIIRS روی Suomi NPP',
     license: 'Public domain (NASA)',
     licenseUrl: 'https://www.nasa.gov/nasa-brand-center/images-and-media/',
     sourceUrl:
-      'https://eoimages.gsfc.nasa.gov/images/imagerecords/79000/79765/dnb_land_ocean_ice.2012.3600x1800.jpg',
-    modificationsFa: 'تغییر اندازه به ۱۰۲۴×۵۱۲ و فشرده‌سازی JPEG برای کاهش حجم.',
+      'https://eoimages.gsfc.nasa.gov/images/imagerecords/144000/144898/BlackMarble_2016_3km.jpg',
+    modificationsFa:
+      'پایهٔ ۱۰۲۴×۵۱۲؛ luminosity در کانال آلفای همان کاشی‌های جزئیات زمین (منبع ۱۳۵۰۰×۶۷۵۰) قرار گرفت تا تکسچر جداگانه لازم نباشد.',
   },
   {
     id: 'moon-texture',

@@ -47,4 +47,14 @@ if (!existsSync(assetsDirectory)) {
   process.exit(1);
 }
 
+const detailSample = resolve(
+  process.cwd(),
+  'dist/earth-detail/v1/5/0/0.webp',
+);
+if (!existsSync(detailSample)) {
+  console.error('The bundled high-resolution Earth detail assets are missing from dist.');
+  process.exit(1);
+}
+
 console.log(`Pages build verified: ${references.length} local references use "${base}".`);
+console.log('Bundled Earth detail tiles are present.');

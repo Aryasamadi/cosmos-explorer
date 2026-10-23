@@ -1,8 +1,12 @@
 import * as THREE from 'three';
-import earthTextureUrl from '../../assets/textures/earth.jpg?url';
-import nightLightsTextureUrl from '../../assets/textures/night-lights.jpg?url';
+import earthTextureUrl from '../../assets/textures/earth.webp?url';
+import nightLightsTextureUrl from '../../assets/textures/night-lights.webp?url';
 import moonTextureUrl from '../../assets/textures/moon.jpg?url';
 import marsTextureUrl from '../../assets/textures/mars.jpg?url';
+import {
+  EARTH_CITY_LIGHT_INTENSITY,
+  EARTH_SURFACE_COLOR_GLSL,
+} from './earthSurfaceShader';
 
 export interface BodyVisual {
   id: string;
@@ -18,6 +22,9 @@ export interface SolarSystemVisual {
   earthSpinGroup: THREE.Object3D;
   earthAtmosphere: THREE.Mesh;
   earthMaterial: THREE.ShaderMaterial;
+  earthDayTexture: THREE.Texture;
+  earthNightTexture: THREE.Texture;
+  earthSunDirection: THREE.Vector3;
   setSubsolarDirection(direction: { x: number; y: number; z: number }): void;
   sunMaterial: THREE.ShaderMaterial;
   selectionRing: THREE.Sprite;
@@ -73,6 +80,9 @@ function loadTexture(
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = true;
     texture.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
     return texture;
   });
@@ -133,7 +143,7 @@ export async function createSolarSystem(
       dayMap: { value: earthTexture },
       nightMap: { value: nightLightsTexture },
       uSunDirection: { value: new THREE.Vector3(1, 0, 0) },
-      uCityLightIntensity: { value: 1.25 },
+      uCityLightIntensity: { value: EARTH_CITY_LIGHT_INTENSITY },
     },
     vertexShader: `
       varying vec2 vUv;
@@ -149,30 +159,18 @@ export async function createSolarSystem(
 
       uniform sampler2D dayMap;
       uniform sampler2D nightMap;
-      uniform vec3 uSunDirection;
-      uniform float uCityLightIntensity;
 
       varying vec2 vUv;
       varying vec3 vNormal;
 
+      ${EARTH_SURFACE_COLOR_GLSL}
+
       void main() {
         vec3 normal = normalize(vNormal);
         float sunDot = dot(normal, normalize(uSunDirection));
-        float dayFactor = smoothstep(-0.10, 0.14, sunDot);
-        float cityMask = 1.0 - smoothstep(-0.16, 0.04, sunDot);
-
         vec3 dayColor = texture2D(dayMap, vUv).rgb;
         vec3 nightLights = texture2D(nightMap, vUv).rgb;
-
-        // Keep continents recognizable at night; never crush the dark side
-        // to pure black. This is a display baseline, not a physical radiance.
-        vec3 nightBase = dayColor * vec3(0.055, 0.075, 0.12);
-        nightBase += dayColor * 0.025;
-        vec3 nightColor = nightBase +
-          nightLights * vec3(1.0, 0.84, 0.58) * uCityLightIntensity * cityMask;
-
-        vec3 dayLit = dayColor * (0.34 + 1.08 * max(sunDot, 0.0));
-        vec3 color = mix(nightColor, dayLit, dayFactor);
+        vec3 color = earthSurfaceColor(dayColor, nightLights, sunDot);
 
         gl_FragColor = vec4(color, 1.0);
         #include <tonemapping_fragment>
@@ -352,6 +350,9 @@ export async function createSolarSystem(
     earthSpinGroup,
     earthAtmosphere,
     earthMaterial,
+    earthDayTexture: earthTexture,
+    earthNightTexture: nightLightsTexture,
+    earthSunDirection: earthMaterial.uniforms.uSunDirection!.value as THREE.Vector3,
     setSubsolarDirection(direction): void {
       earthMaterial.uniforms.uSunDirection!.value.set(
         direction.x,

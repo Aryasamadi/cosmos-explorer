@@ -23,6 +23,11 @@ import {
   type GlobeTileLayer,
   type MapDetailStatus,
 } from './globeTiles';
+import {
+  createEarthDetailLayer,
+  type EarthDetailLayer,
+  type EarthDetailStatus,
+} from './earthDetailLayer';
 
 const OVERVIEW_POSITION = new THREE.Vector3(0, 2.15, 7.4);
 const OVERVIEW_TARGET = new THREE.Vector3(0, 0, 0);
@@ -34,6 +39,7 @@ export interface FreeExploreSceneOptions {
   lowPower?: boolean;
   onSelectBody?: (bodyId: string) => void;
   onMapStatus?: (status: MapDetailStatus) => void;
+  onEarthDetailStatus?: (status: EarthDetailStatus) => void;
   onContextLost?: () => void;
   onContextRestored?: () => void;
 }
@@ -73,6 +79,7 @@ export class FreeExploreScene {
   private readonly controls: OrbitControls;
   private readonly visual: SolarSystemVisual;
   private readonly starfield: THREE.Group;
+  private readonly earthDetail: EarthDetailLayer;
   private readonly globeTiles: GlobeTileLayer;
   private readonly locationLayer: EarthLocationLayer;
   private readonly loop: RenderLoop;
@@ -113,6 +120,15 @@ export class FreeExploreScene {
 
     this.locationLayer = createEarthLocationLayer();
     visual.earthSpinGroup.add(this.locationLayer.group);
+    this.earthDetail = createEarthDetailLayer({
+      renderer,
+      baseDayTexture: visual.earthDayTexture,
+      baseNightTexture: visual.earthNightTexture,
+      sunDirection: visual.earthSunDirection,
+      baseUrl: import.meta.env.BASE_URL,
+      onStatus: options.onEarthDetailStatus,
+    });
+    visual.earthSpinGroup.add(this.earthDetail.group);
     this.globeTiles = createGlobeTileLayer({
       renderer,
       onStatus: options.onMapStatus,
@@ -320,6 +336,7 @@ export class FreeExploreScene {
       this.handleContextRestored,
     );
     this.controls.dispose();
+    this.earthDetail.dispose();
     this.globeTiles.dispose();
     this.locationLayer.dispose();
     disposeObjectTree(this.scene);
@@ -412,7 +429,7 @@ export class FreeExploreScene {
     // No background bodies may show through the local Earth view. The base is
     // opaque; hiding the distant starfield also keeps the night side readable.
     this.starfield.visible = !earthDetailActive;
-    this.visual.earthAtmosphere.visible = !(lookingAtEarth && distance < 1.06);
+    this.visual.earthAtmosphere.visible = !(lookingAtEarth && distance < 1.15);
     this.visual.selectionRing.visible =
       this.selectedBodyId !== null && !(lookingAtEarth && distance < 2.1);
   }
@@ -470,8 +487,16 @@ export class FreeExploreScene {
     this.updateEarthProximity();
     this.updateEarthLighting();
     // Do not request tile sets for intermediate camera positions during a
-    // fly-to. The 260 ms settle alone can be exceeded by a slow frame and
-    // would otherwise waste a request wave mid-animation.
+    // fly-to. Detail fades still advance every frame.
+    this.earthDetail.update({
+      camera: this.camera,
+      earthGroup: this.visual.earthSpinGroup,
+      target: this.controls.target,
+      viewportWidth: this.viewportWidth,
+      viewportHeight: this.viewportHeight,
+      pixelRatio: this.renderer.getPixelRatio(),
+      allowSelection: !this.geoFocusTween && !this.tween,
+    });
     if (!this.geoFocusTween && !this.tween) {
       this.globeTiles.update({
         camera: this.camera,

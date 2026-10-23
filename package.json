@@ -1,7 +1,7 @@
 {
   "name": "cosmos-explorer",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "description": "کاوشگر سه‌بعدی زمین، ماه، خورشید و مریخ به‌همراه آسمان واقعی",
   "license": "MIT",

@@ -5,8 +5,8 @@ import {
 } from '../../geo/earthCoordinates';
 import type { GeoLocation, LocalVector } from '../../geo/types';
 
-const MARKER_RADIUS = 1.00009;
-const ACCURACY_RADIUS = 1.000055;
+const MARKER_RADIUS = 1.00024;
+const ACCURACY_RADIUS = 1.0002;
 
 function createLocationMarkerTexture(): THREE.Texture {
   const canvas = document.createElement('canvas');

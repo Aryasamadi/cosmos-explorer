@@ -9,6 +9,7 @@ import {
 import { DISPLAY_SCALE_NOTICE_FA } from '../../config/display';
 import { FreeExploreScene } from '../../engine/free/FreeExploreScene';
 import type { MapDetailStatus } from '../../engine/free/globeTiles';
+import type { EarthDetailStatus } from '../../engine/free/earthDetailLayer';
 import type { GeoLocation } from '../../geo/types';
 import { OSM_RASTER_TILES } from '../../geo/tiles/tileProvider';
 import { useWebGLSupport } from '../../hooks/useWebGLSupport';
@@ -26,6 +27,15 @@ const EMPTY_MAP_STATUS: MapDetailStatus = {
   failedTiles: 0,
 };
 
+const EMPTY_EARTH_DETAIL_STATUS: EarthDetailStatus = {
+  phase: 'idle',
+  level: null,
+  loadedTiles: 0,
+  failedTiles: 0,
+  desiredTiles: 0,
+  atMaxLevel: false,
+};
+
 export function FreeExploreMode() {
   const { selectedBodyId, infoOpen, lowPower, earthLocation } = useAppState();
   const dispatch = useAppDispatch();
@@ -39,6 +49,9 @@ export function FreeExploreMode() {
   const [hintVisible, setHintVisible] = useState(true);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
   const [mapStatus, setMapStatus] = useState<MapDetailStatus>(EMPTY_MAP_STATUS);
+  const [earthDetailStatus, setEarthDetailStatus] = useState<EarthDetailStatus>(
+    EMPTY_EARTH_DETAIL_STATUS,
+  );
 
   const selectedBody = getBodyById(selectedBodyId);
   const freeBodies = getFreeExploreBodies();
@@ -62,6 +75,7 @@ export function FreeExploreMode() {
         container: node,
         onSelectBody: (bodyId) => dispatch({ type: 'select-body', bodyId }),
         onMapStatus: setMapStatus,
+        onEarthDetailStatus: setEarthDetailStatus,
         onContextLost: () => setContextLost(true),
         onContextRestored: () => setContextLost(false),
       })
@@ -149,8 +163,24 @@ export function FreeExploreMode() {
     setStatus('loading');
     setErrorMessage(null);
     setContextLost(false);
+    setMapStatus(EMPTY_MAP_STATUS);
+    setEarthDetailStatus(EMPTY_EARTH_DETAIL_STATUS);
     setAttempt((value) => value + 1);
   };
+
+  const earthDetailText =
+    earthDetailStatus.phase === 'loading'
+      ? 'در حال بارگذاری تصویر ماهواره‌ای با جزئیات بالاتر…'
+      : earthDetailStatus.phase === 'ready'
+        ? earthDetailStatus.atMaxLevel
+          ? 'تصویر ماهواره‌ای NASA Blue Marble · بالاترین جزئیات تصویر'
+          : `تصویر ماهواره‌ای NASA Blue Marble · سطح ${formatNumber(
+              earthDetailStatus.level ?? 0,
+              0,
+            )}`
+        : earthDetailStatus.phase === 'error'
+          ? 'جزئیات تصویر ماهواره‌ای در دسترس نیست؛ کرهٔ پایه نمایش داده می‌شود.'
+          : null;
 
   const locationAccuracyText = earthLocation
     ? earthLocation.source === 'manual'
@@ -307,6 +337,11 @@ export function FreeExploreMode() {
         ) : mapStatus.phase === 'ready' && mapStatus.zoom !== null ? (
           <p className="earth-map-status">
             جزئیات نقشه فعال · سطح {formatNumber(mapStatus.zoom, 0)}
+          </p>
+        ) : null}
+        {earthDetailText ? (
+          <p className="earth-imagery-status" role="status">
+            {earthDetailText}
           </p>
         ) : null}
         <div className="body-pills" role="group" aria-label="انتخاب جرم">
