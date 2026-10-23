@@ -81,9 +81,9 @@ test.describe('navigation and state preservation diagnostics', () => {
     await waitForMapReady(page);
 
     await page.getByRole('button', { name: 'آسمان واقعی' }).click();
-    await expect(
-      page.getByRole('heading', { name: 'آسمان از کجا دیده می‌شود؟' }),
-    ).toBeVisible();
+    // Phase 1 shares the selected location with Sky, so the sky HUD opens
+    // directly instead of the observer setup screen.
+    await expect(page.getByTestId('sky-hud')).toBeVisible();
     await page.getByRole('button', { name: 'کاوش آزاد' }).click();
     await page.waitForTimeout(3200);
 
@@ -109,9 +109,9 @@ test.describe('navigation and state preservation diagnostics', () => {
     const before = await captureCanvasSignature(page);
 
     await page.getByRole('button', { name: 'آسمان واقعی' }).click();
-    await expect(
-      page.getByRole('heading', { name: 'آسمان از کجا دیده می‌شود؟' }),
-    ).toBeVisible();
+    // Phase 1 shares the selected location with Sky, so the sky HUD opens
+    // directly instead of the observer setup screen.
+    await expect(page.getByTestId('sky-hud')).toBeVisible();
     await page.getByRole('button', { name: 'کاوش آزاد' }).click();
     await page.waitForTimeout(3200);
     const after = await captureCanvasSignature(page);

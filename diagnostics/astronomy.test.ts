@@ -8,47 +8,35 @@ import {
   solarDotAt,
 } from '../src/astronomy/ephemeris/subsolarPoint';
 import {
+  computeReferenceFrame,
+  phaseFractionFromBodyState,
+} from '../src/astronomy/referenceFrame';
+import {
   geodeticToUnitVector,
   unitVectorToGeodetic,
 } from '../src/geo/earthCoordinates';
+import {
+  getEarthDisplayQuaternion,
+  localDirectionToScene,
+} from '../src/engine/free/earthDisplayFrame';
 
 const FIXED_DATE = new Date('2026-06-21T12:00:00.000Z');
+const DATES = [
+  '2026-01-15T00:00:00.000Z',
+  '2026-03-20T12:00:00.000Z',
+  '2026-06-21T12:00:00.000Z',
+  '2026-09-23T00:00:00.000Z',
+  '2026-12-21T12:00:00.000Z',
+] as const;
 
-// These scene constants mirror src/engine/free/solarSystem.ts. Production does
-// not expose a scene probe, so this test intentionally duplicates them; the
-// duplication itself is a documented Phase-0 observability gap.
-const SCENE = {
-  sunPosition: new THREE.Vector3(22, 7, 24),
-  moonPosition: new THREE.Vector3(4.9, 0.35, 3.1),
-  marsPosition: new THREE.Vector3(-10.5, -1.1, 14.6),
-  earthSpinRadians: 2.1,
-  earthTiltDegrees: 23.44,
-} as const;
-
-function sceneSunInEarthFrame(): THREE.Vector3 {
-  const tilt = new THREE.Quaternion().setFromAxisAngle(
-    new THREE.Vector3(0, 0, 1),
-    THREE.MathUtils.degToRad(SCENE.earthTiltDegrees),
+function angleDeg(
+  left: { x: number; y: number; z: number },
+  right: { x: number; y: number; z: number },
+): number {
+  const cosine = left.x * right.x + left.y * right.y + left.z * right.z;
+  return THREE.MathUtils.radToDeg(
+    Math.acos(THREE.MathUtils.clamp(cosine, -1, 1)),
   );
-  const spin = new THREE.Quaternion().setFromAxisAngle(
-    new THREE.Vector3(0, 1, 0),
-    SCENE.earthSpinRadians,
-  );
-  const worldQuaternion = tilt.multiply(spin);
-  return SCENE.sunPosition
-    .clone()
-    .normalize()
-    .applyQuaternion(worldQuaternion.invert())
-    .normalize();
-}
-
-function sceneDirectionalPhaseFraction(bodyPosition: THREE.Vector3): number {
-  // The production Moon/Mars material uses this one DirectionalLight for every
-  // body. Its incoming direction is the fixed scene-Sun direction.
-  const toLight = SCENE.sunPosition.clone().normalize();
-  const toEarth = bodyPosition.clone().negate().normalize();
-  const cosine = THREE.MathUtils.clamp(toLight.dot(toEarth), -1, 1);
-  return (1 + cosine) / 2;
 }
 
 describe('fixed-date astronomical reference', () => {
@@ -92,38 +80,49 @@ describe('fixed-date astronomical reference', () => {
       ).toBeLessThan(1e-4);
     }
   });
+});
 
-  it.fails(
-    'KNOWN DEFECT: scene-Sun direction must agree with the real Earth subsolar point',
-    () => {
-      const subsolar = computeSubsolarPoint(FIXED_DATE);
-      const realSun = new THREE.Vector3(
-        geodeticToUnitVector(subsolar.latitudeDeg, subsolar.longitudeDeg).x,
-        geodeticToUnitVector(subsolar.latitudeDeg, subsolar.longitudeDeg).y,
-        geodeticToUnitVector(subsolar.latitudeDeg, subsolar.longitudeDeg).z,
-      );
-      const sceneSun = sceneSunInEarthFrame();
-      const angleDeg =
-        THREE.MathUtils.radToDeg(Math.acos(THREE.MathUtils.clamp(sceneSun.dot(realSun), -1, 1)));
-      expect(angleDeg).toBeLessThan(5);
-    },
-  );
+describe('scientific frame and lighting', () => {
+  it.each(DATES)('keeps scene Sun within 5 degrees of the subsolar point at %s', (iso) => {
+    const date = new Date(iso);
+    const frame = computeReferenceFrame(date);
+    const subsolar = computeSubsolarPoint(date);
+    const subsolarLocal = geodeticToUnitVector(
+      subsolar.latitudeDeg,
+      subsolar.longitudeDeg,
+    );
 
-  it.fails(
-    'KNOWN DEFECT: rendered Moon phase must follow the real Moon illumination',
-    () => {
-      const real = Illumination(Body.Moon, FIXED_DATE).phase_fraction;
-      const scene = sceneDirectionalPhaseFraction(SCENE.moonPosition);
-      expect(Math.abs(scene - real)).toBeLessThan(0.1);
-    },
-  );
+    const sceneSun = localDirectionToScene(frame.sun.directionFromEarth);
+    const sceneSubsolar = localDirectionToScene(subsolarLocal);
+    expect(THREE.MathUtils.radToDeg(sceneSun.angleTo(sceneSubsolar))).toBeLessThan(5);
 
-  it.fails(
-    'KNOWN DEFECT: rendered Mars phase must follow the real Mars illumination',
-    () => {
-      const real = Illumination(Body.Mars, FIXED_DATE).phase_fraction;
-      const scene = sceneDirectionalPhaseFraction(SCENE.marsPosition);
-      expect(Math.abs(scene - real)).toBeLessThan(0.1);
-    },
-  );
+    const displayRotation = getEarthDisplayQuaternion();
+    const sunInEarthFrame = sceneSun
+      .clone()
+      .applyQuaternion(displayRotation.invert())
+      .normalize();
+    expect(angleDeg(sunInEarthFrame, subsolarLocal)).toBeLessThan(5);
+  });
+
+  it.each(DATES)('matches Moon and Mars illuminated fractions at %s', (iso) => {
+    const date = new Date(iso);
+    const frame = computeReferenceFrame(date);
+
+    for (const [body, state] of [
+      [Body.Moon, frame.moon],
+      [Body.Mars, frame.mars],
+    ] as const) {
+      const reference = Illumination(body, date).phase_fraction;
+      const rendered = phaseFractionFromBodyState(state);
+      expect(Math.abs(rendered - reference)).toBeLessThan(0.1);
+      if (reference >= 0.1) {
+        expect(Math.abs(rendered - reference) / reference).toBeLessThan(0.1);
+      }
+    }
+  });
+
+  it('does not reuse the Earth-Sun direction to illuminate Mars', () => {
+    const frame = computeReferenceFrame(FIXED_DATE);
+    expect(angleDeg(frame.mars.sunDirection, frame.sun.sunDirection)).toBeGreaterThan(1);
+  });
 });

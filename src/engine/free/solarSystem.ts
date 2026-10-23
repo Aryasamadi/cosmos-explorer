@@ -3,10 +3,16 @@ import earthTextureUrl from '../../assets/textures/earth.webp?url';
 import nightLightsTextureUrl from '../../assets/textures/night-lights.webp?url';
 import moonTextureUrl from '../../assets/textures/moon.jpg?url';
 import marsTextureUrl from '../../assets/textures/mars.jpg?url';
+import type { ReferenceFrame } from '../../astronomy/referenceFrame';
+import {
+  EARTH_DISPLAY_DISTANCES,
+  localDirectionToScene,
+} from './earthDisplayFrame';
 import {
   EARTH_CITY_LIGHT_INTENSITY,
   EARTH_SURFACE_COLOR_GLSL,
 } from './earthSurfaceShader';
+import { createLitBodyMaterial } from './litBodyMaterial';
 
 export interface BodyVisual {
   id: string;
@@ -25,15 +31,11 @@ export interface SolarSystemVisual {
   earthDayTexture: THREE.Texture;
   earthNightTexture: THREE.Texture;
   earthSunDirection: THREE.Vector3;
-  setSubsolarDirection(direction: { x: number; y: number; z: number }): void;
+  applyReferenceFrame(frame: ReferenceFrame): void;
   sunMaterial: THREE.ShaderMaterial;
   selectionRing: THREE.Sprite;
   update(elapsedSeconds: number, _deltaSeconds: number, lowPower: boolean): void;
 }
-
-const SUN_POSITION = new THREE.Vector3(22, 7, 24);
-const MOON_POSITION = new THREE.Vector3(4.9, 0.35, 3.1);
-const MARS_POSITION = new THREE.Vector3(-10.5, -1.1, 14.6);
 
 function createSunGlowTexture(): THREE.Texture {
   const canvas = document.createElement('canvas');
@@ -198,11 +200,11 @@ export async function createSolarSystem(
   bodies.set('earth', { id: 'earth', mesh: earthMesh, radius: 1, position: new THREE.Vector3(0, 0, 0) });
   interactiveMeshes.push(earthMesh);
 
+  const moonLit = createLitBodyMaterial(moonTexture);
   const moonMesh = new THREE.Mesh(
     new THREE.SphereGeometry(0.27, 64, 64),
-    new THREE.MeshStandardMaterial({ map: moonTexture, roughness: 1, metalness: 0 }),
+    moonLit.material,
   );
-  moonMesh.position.copy(MOON_POSITION);
   moonMesh.rotation.y = -0.8;
   moonMesh.userData.bodyId = 'moon';
   root.add(moonMesh);
@@ -210,7 +212,7 @@ export async function createSolarSystem(
     id: 'moon',
     mesh: moonMesh,
     radius: 0.27,
-    position: MOON_POSITION.clone(),
+    position: new THREE.Vector3(),
   });
   interactiveMeshes.push(moonMesh);
 
@@ -275,14 +277,13 @@ export async function createSolarSystem(
   });
 
   const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(3.2, 64, 64), sunMaterial);
-  sunMesh.position.copy(SUN_POSITION);
   sunMesh.userData.bodyId = 'sun';
   root.add(sunMesh);
   bodies.set('sun', {
     id: 'sun',
     mesh: sunMesh,
     radius: 3.2,
-    position: SUN_POSITION.clone(),
+    position: new THREE.Vector3(),
   });
   interactiveMeshes.push(sunMesh);
 
@@ -297,15 +298,14 @@ export async function createSolarSystem(
     toneMapped: false,
   });
   const glow = new THREE.Sprite(glowMaterial);
-  glow.position.copy(SUN_POSITION);
   glow.scale.setScalar(16);
   root.add(glow);
 
+  const marsLit = createLitBodyMaterial(marsTexture, 0.06);
   const marsMesh = new THREE.Mesh(
     new THREE.SphereGeometry(0.53, 64, 64),
-    new THREE.MeshStandardMaterial({ map: marsTexture, roughness: 0.96, metalness: 0 }),
+    marsLit.material,
   );
-  marsMesh.position.copy(MARS_POSITION);
   marsMesh.rotation.z = THREE.MathUtils.degToRad(25.19);
   marsMesh.rotation.y = 0.7;
   marsMesh.userData.bodyId = 'mars';
@@ -314,7 +314,7 @@ export async function createSolarSystem(
     id: 'mars',
     mesh: marsMesh,
     radius: 0.53,
-    position: MARS_POSITION.clone(),
+    position: new THREE.Vector3(),
   });
   interactiveMeshes.push(marsMesh);
 
@@ -331,17 +331,36 @@ export async function createSolarSystem(
   selectionRing.visible = false;
   root.add(selectionRing);
 
-  const sunlight = new THREE.DirectionalLight(0xfff2dc, 3.1);
-  sunlight.position.copy(SUN_POSITION);
-  sunlight.target.position.set(0, 0, 0);
-  root.add(sunlight);
-  root.add(sunlight.target);
-  root.add(new THREE.AmbientLight(0x3b5077, 0.55));
-  const fill = new THREE.DirectionalLight(0x8fb5ff, 0.24);
-  fill.position.set(0, 2, 10);
-  fill.target.position.set(0, 0, 0);
-  root.add(fill);
-  root.add(fill.target);
+  const applyReferenceFrame = (frame: ReferenceFrame): void => {
+    const sunDirection = localDirectionToScene(frame.sun.directionFromEarth);
+    sunMesh.position.copy(sunDirection).multiplyScalar(EARTH_DISPLAY_DISTANCES.sun);
+    glow.position.copy(sunMesh.position);
+
+    const moonPosition = localDirectionToScene(frame.moon.directionFromEarth)
+      .multiplyScalar(EARTH_DISPLAY_DISTANCES.moon);
+    moonMesh.position.copy(moonPosition);
+    bodies.get('moon')?.position.copy(moonPosition);
+
+    const marsPosition = localDirectionToScene(frame.mars.directionFromEarth)
+      .multiplyScalar(EARTH_DISPLAY_DISTANCES.mars);
+    marsMesh.position.copy(marsPosition);
+    bodies.get('mars')?.position.copy(marsPosition);
+
+    const sunBody = bodies.get('sun');
+    sunBody?.position.copy(sunMesh.position);
+    earthMaterial.uniforms.uSunDirection!.value.set(
+      frame.sun.directionFromEarth.x,
+      frame.sun.directionFromEarth.y,
+      frame.sun.directionFromEarth.z,
+    ).normalize();
+
+    moonLit.sunDirection.copy(
+      localDirectionToScene(frame.moon.sunDirection),
+    );
+    marsLit.sunDirection.copy(
+      localDirectionToScene(frame.mars.sunDirection),
+    );
+  };
 
   return {
     root,
@@ -353,13 +372,7 @@ export async function createSolarSystem(
     earthDayTexture: earthTexture,
     earthNightTexture: nightLightsTexture,
     earthSunDirection: earthMaterial.uniforms.uSunDirection!.value as THREE.Vector3,
-    setSubsolarDirection(direction): void {
-      earthMaterial.uniforms.uSunDirection!.value.set(
-        direction.x,
-        direction.y,
-        direction.z,
-      ).normalize();
-    },
+    applyReferenceFrame,
     sunMaterial,
     selectionRing,
     update(elapsedSeconds: number, _deltaSeconds: number, lowPower: boolean): void {

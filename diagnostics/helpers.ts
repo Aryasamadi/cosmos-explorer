@@ -8,27 +8,36 @@ const SYNTHETIC_TILE_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGMMqIhiYGBgYgADAA24ASYGXMCAAAAAAElFTkSuQmCC';
 export const SYNTHETIC_TILE_PNG = Buffer.from(SYNTHETIC_TILE_BASE64, 'base64');
 
-const FIXED_DATE_SCRIPT = `
-  (() => {
-    const fixed = ${FIXED_MS};
-    const RealDate = Date;
-    class FixedDate extends RealDate {
-      constructor(...args) {
-        if (args.length === 0) super(fixed);
-        else super(...args);
+function fixedDateScript(fixedMs: number): string {
+  return `
+    (() => {
+      const fixed = ${fixedMs};
+      const RealDate = Date;
+      class FixedDate extends RealDate {
+        constructor(...args) {
+          if (args.length === 0) super(fixed);
+          else super(...args);
+        }
+        static now() { return fixed; }
       }
-      static now() { return fixed; }
-    }
-    Object.defineProperty(globalThis, 'Date', {
-      value: FixedDate,
-      writable: true,
-      configurable: true,
-    });
-  })();
-`;
+      Object.defineProperty(globalThis, 'Date', {
+        value: FixedDate,
+        writable: true,
+        configurable: true,
+      });
+    })();
+  `;
+}
 
-export async function installFixedDate(page: Page): Promise<void> {
-  await page.addInitScript({ content: FIXED_DATE_SCRIPT });
+export async function installFixedDate(
+  page: Page,
+  utc: string = FIXED_UTC,
+): Promise<void> {
+  const fixedMs = Date.parse(utc);
+  if (!Number.isFinite(fixedMs)) {
+    throw new RangeError(`Invalid fixed UTC instant: ${utc}`);
+  }
+  await page.addInitScript({ content: fixedDateScript(fixedMs) });
 }
 
 export async function blockOsm(page: Page): Promise<void> {

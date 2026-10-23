@@ -1,7 +1,8 @@
-# Phase-0 diagnostics
+# Diagnostics (Phase 0 + Phase 1)
 
-این پوشه از تست‌های production و CI معمول جداست. هدف آن ثبت رفتار واقعی نسخهٔ
-۰٫۴٫۰، بازتولید نقص‌های شناخته‌شده و ایجاد baseline تصویری برای فازهای بعدی است.
+این پوشه از تست‌های production و CI معمول جداست. فاز ۰ رفتار نسخهٔ ۰٫۴٫۰ را ثبت
+کرد؛ فاز ۱ هم‌ترازی علمی نور/فاز و LocationService مشترک را با همان ابزارها می‌سنجد.
+چهار نقص ناوبری همچنان expected-fail آگاهانه‌اند.
 
 ## اجرا
 
@@ -21,9 +22,11 @@ npm run test:diagnostics:update
   (پیکربندی آن را خودکار بالا می‌آورد).
 - درخواست‌های OSM در همهٔ تست‌ها mock/abort می‌شوند؛ تست خودکار به سرویس واقعی
   OSM متصل نمی‌شود.
-- تست‌های دارای `KNOWN DEFECT` با `test.fail`/`it.fails` علامت خورده‌اند. اگر بعداً
-  رفتار production اصلاح شود، این تست‌ها به‌صورت «unexpectedly passed» شکست می‌خورند
-  و باید آگاهانه به تست موفق تبدیل شوند.
+- تست‌های دارای `KNOWN DEFECT` با `test.fail` علامت خورده‌اند. بعد از فاز ۱ فقط
+  چهار نقص ناوبری باقی مانده‌اند. اگر رفتار production اصلاح شود، این تست‌ها به‌صورت
+  «unexpectedly passed» شکست می‌خورند و باید آگاهانه به تست موفق تبدیل شوند.
+- `installFixedDate(page, utc)` امکان اجرای هر سناریو در تاریخ UTC دلخواه را می‌دهد؛
+  baselineهای دو فاز ماه در تاریخ‌های ۲۰۲۶-۰۶-۲۱ و ۲۰۲۶-۰۹-۲۳ ساخته شده‌اند.
 - baselineهای تصویری با Chrome headless/SwiftShader، DPR=۱ و locale=`fa-IR` تولید
   شده‌اند. آن‌ها baseline دستگاه فیزیکی یا مرجع رنگ دقیق نیستند.
 - baselineها در `diagnostics/baselines/<platform>/` قرار دارند. برای CI لینوکسی
@@ -31,9 +34,11 @@ npm run test:diagnostics:update
 
 ## مرزها
 
-- این suite هیچ فایل production، dependency، تصویر یا تنظیمات build را تغییر نمی‌دهد.
+- این suite هیچ dependency، تصویر یا تنظیمات build را تغییر نمی‌دهد؛ فاز ۱ در
+  `src/` تغییرات scientific/location داشت و همین تست‌ها آن‌ها را پوشش می‌دهند.
 - network mock و geolocation شبیه‌سازی‌شده، جای آزمون واقعی OSM/GPS/دستگاه را
   نمی‌گیرند.
 - نتیجهٔ WebGL در محیط SwiftShader با GPU موبایل قابل مقایسه نیست.
 
-گزارش تفصیلی: [`docs/mission-006-diagnostics.md`](../docs/mission-006-diagnostics.md)
+گزارش‌ها: [`docs/mission-006-diagnostics.md`](../docs/mission-006-diagnostics.md) و
+[`docs/mission-007-phase1.md`](../docs/mission-007-phase1.md)

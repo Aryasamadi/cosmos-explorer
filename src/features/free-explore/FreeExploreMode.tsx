@@ -11,6 +11,7 @@ import { FreeExploreScene } from '../../engine/free/FreeExploreScene';
 import type { MapDetailStatus } from '../../engine/free/globeTiles';
 import type { EarthDetailStatus } from '../../engine/free/earthDetailLayer';
 import type { GeoLocation } from '../../geo/types';
+import { COARSE_ACCURACY_THRESHOLD_M } from '../../geo/locationService';
 import { OSM_RASTER_TILES } from '../../geo/tiles/tileProvider';
 import { useWebGLSupport } from '../../hooks/useWebGLSupport';
 import { CelestialInfoPanel } from '../celestial-info/CelestialInfoPanel';
@@ -37,7 +38,7 @@ const EMPTY_EARTH_DETAIL_STATUS: EarthDetailStatus = {
 };
 
 export function FreeExploreMode() {
-  const { selectedBodyId, infoOpen, lowPower, earthLocation } = useAppState();
+  const { selectedBodyId, infoOpen, lowPower, location } = useAppState();
   const dispatch = useAppDispatch();
   const support = useWebGLSupport();
   const sceneRef = useRef<FreeExploreScene | null>(null);
@@ -120,12 +121,12 @@ export function FreeExploreMode() {
 
   useEffect(() => {
     if (status !== 'ready') return;
-    sceneRef.current?.setGeographicLocation(earthLocation);
-    if (earthLocation && pendingGeoFocusRef.current) {
-      sceneRef.current?.focusGeographicLocation(earthLocation);
+    sceneRef.current?.setGeographicLocation(location);
+    if (location && pendingGeoFocusRef.current) {
+      sceneRef.current?.focusGeographicLocation(location);
       pendingGeoFocusRef.current = false;
     }
-  }, [earthLocation, status]);
+  }, [location, status]);
 
   const handleSelectBody = useCallback(
     (bodyId: string) => {
@@ -136,16 +137,20 @@ export function FreeExploreMode() {
   );
 
   const handleUseLocation = useCallback(
-    (location: GeoLocation) => {
-      pendingGeoFocusRef.current = true;
-      dispatch({ type: 'set-earth-location', location });
+    (nextLocation: GeoLocation) => {
+      const isCoarseDeviceFix =
+        nextLocation.source === 'device' &&
+        nextLocation.accuracyM !== null &&
+        nextLocation.accuracyM > COARSE_ACCURACY_THRESHOLD_M;
+      pendingGeoFocusRef.current = !isCoarseDeviceFix;
+      dispatch({ type: 'set-location', location: nextLocation });
     },
     [dispatch],
   );
 
   const handleUpdateLocation = useCallback(
-    (location: GeoLocation) => {
-      dispatch({ type: 'set-earth-location', location });
+    (nextLocation: GeoLocation) => {
+      dispatch({ type: 'set-location', location: nextLocation });
     },
     [dispatch],
   );
@@ -155,7 +160,7 @@ export function FreeExploreMode() {
   }, []);
 
   const handleClearLocation = useCallback(() => {
-    dispatch({ type: 'clear-earth-location' });
+    dispatch({ type: 'clear-location' });
     sceneRef.current?.clearGeographicLocation();
   }, [dispatch]);
 
@@ -182,10 +187,10 @@ export function FreeExploreMode() {
           ? 'جزئیات تصویر ماهواره‌ای در دسترس نیست؛ کرهٔ پایه نمایش داده می‌شود.'
           : null;
 
-  const locationAccuracyText = earthLocation
-    ? earthLocation.source === 'manual'
+  const locationAccuracyText = location
+    ? location.source === 'manual'
       ? 'مختصات دستی؛ دقت دستگاه نامشخص'
-      : formatAccuracy(earthLocation.accuracyM)
+      : formatAccuracy(location.accuracyM)
     : null;
 
   return (
@@ -293,23 +298,23 @@ export function FreeExploreMode() {
         <div className="earth-location-row">
           <button
             type="button"
-            className={`earth-location-pill ${earthLocation ? 'has-location' : ''}`}
+            className={`earth-location-pill ${location ? 'has-location' : ''}`}
             onClick={() => setLocationSheetOpen(true)}
             aria-label={
-              earthLocation
-                ? `موقعیت شما: ${formatObserverLocation(earthLocation)}. ${locationAccuracyText ?? ''}`
+              location
+                ? `موقعیت شما: ${formatObserverLocation(location)}. ${locationAccuracyText ?? ''}`
                 : 'موقعیت من روی زمین'
             }
           >
             <IconPin size={16} />
-            {earthLocation ? (
+            {location ? (
               <span className="earth-location-pill__text">
                 <span className="earth-location-pill__title">
                   موقعیت شما
                   <small>{locationAccuracyText}</small>
                 </span>
                 <span className="earth-location-pill__coords">
-                  {formatObserverLocation(earthLocation)}
+                  {formatObserverLocation(location)}
                 </span>
               </span>
             ) : (
@@ -387,7 +392,7 @@ export function FreeExploreMode() {
         <EarthLocationSheet
           open
           onClose={() => setLocationSheetOpen(false)}
-          location={earthLocation}
+          location={location}
           onUseLocation={handleUseLocation}
           onUpdateLocation={handleUpdateLocation}
           onFocus={handleFocusLocation}

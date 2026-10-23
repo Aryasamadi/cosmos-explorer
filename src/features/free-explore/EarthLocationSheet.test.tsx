@@ -104,6 +104,20 @@ describe('EarthLocationSheet', () => {
     expect(props.onClose).toHaveBeenCalled();
   });
 
+  it('keeps a coarse fix open and requires an explicit focus action', async () => {
+    installGeolocation((success) => success(makePosition(900)));
+    const user = userEvent.setup();
+    const props = renderSheet();
+
+    await user.click(screen.getByRole('button', { name: 'دریافت موقعیت دستگاه' }));
+
+    await waitFor(() => expect(props.onUseLocation).toHaveBeenCalledTimes(1));
+    const location = props.onUseLocation.mock.calls[0]?.[0] as GeoLocation;
+    expect(location.accuracyM).toBe(900);
+    expect(props.onClose).not.toHaveBeenCalled();
+    expect(await screen.findByText(/زوم روی محدودهٔ نامطمئن/)).toBeInTheDocument();
+  });
+
   it('shows a clear error when location permission is denied', async () => {
     installGeolocation((_success, error) => {
       error?.({ code: 1, message: 'denied' } as GeolocationPositionError);

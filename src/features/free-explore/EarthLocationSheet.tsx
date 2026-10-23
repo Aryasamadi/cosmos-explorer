@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ObserverLocation } from '../../astronomy/types';
 import {
-  acquireDeviceLocation,
   describeDeviceLocationErrorFa,
   DeviceLocationError,
   type DeviceLocationErrorCode,
 } from '../../geo/deviceLocation';
+import {
+  acquireSharedLocation,
+  COARSE_ACCURACY_THRESHOLD_M,
+  readLocationPermission,
+  type GeolocationPermissionState,
+} from '../../geo/locationService';
+import { observerLocationToGeo } from '../../geo/locationAdapters';
 import type { GeoLocation } from '../../geo/types';
 import { OSM_RASTER_TILES } from '../../geo/tiles/tileProvider';
 import {
@@ -31,16 +36,12 @@ interface EarthLocationSheetProps {
 
 type BusyState = 'idle' | 'requesting' | 'refining';
 
-function manualToGeoLocation(observer: ObserverLocation): GeoLocation {
-  return {
-    latitudeDeg: observer.latitudeDeg,
-    longitudeDeg: observer.longitudeDeg,
-    accuracyM: null,
-    altitudeM: Number.isFinite(observer.heightM) ? observer.heightM : null,
-    source: 'manual',
-    timestampMs: Date.now(),
-  };
-}
+const PERMISSION_LABEL_FA: Record<GeolocationPermissionState, string> = {
+  granted: 'مجاز',
+  denied: 'ردشده',
+  prompt: 'در انتظار انتخاب شما',
+  unsupported: 'نامشخص',
+};
 
 export function EarthLocationSheet({
   open,
@@ -55,6 +56,9 @@ export function EarthLocationSheet({
   const [busy, setBusy] = useState<BusyState>('idle');
   const [errorCode, setErrorCode] = useState<DeviceLocationErrorCode | null>(null);
   const [refineNote, setRefineNote] = useState<string | null>(null);
+  const [coarseNote, setCoarseNote] = useState<string | null>(null);
+  const [permissionState, setPermissionState] =
+    useState<GeolocationPermissionState>('unsupported');
   const controllerRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
 
@@ -66,6 +70,16 @@ export function EarthLocationSheet({
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    void readLocationPermission().then((state) => {
+      if (active) setPermissionState(state);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const runLocationRequest = async (mode: 'quick' | 'refine'): Promise<void> => {
     controllerRef.current?.abort();
     const controller = new AbortController();
@@ -73,11 +87,22 @@ export function EarthLocationSheet({
     setBusy(mode === 'quick' ? 'requesting' : 'refining');
     setErrorCode(null);
     setRefineNote(null);
+    setCoarseNote(null);
     try {
-      const fix = await acquireDeviceLocation({ mode, signal: controller.signal });
+      const fix = await acquireSharedLocation({ mode, signal: controller.signal });
       if (!mountedRef.current || controller.signal.aborted) return;
       if (mode === 'quick') {
         onUseLocation(fix);
+        if (
+          fix.source === 'device' &&
+          fix.accuracyM !== null &&
+          fix.accuracyM > COARSE_ACCURACY_THRESHOLD_M
+        ) {
+          setCoarseNote(
+            'موقعیت تقریبی ثبت شد. برای جلوگیری از زوم روی محدودهٔ نامطمئن، نمای نزدیک را خودتان با دکمهٔ «نمایش روی زمین» انتخاب کنید.',
+          );
+          return;
+        }
         onClose();
         return;
       }
@@ -138,6 +163,11 @@ export function EarthLocationSheet({
         ) : (
           <p className="settings-text">هنوز موقعیتی ثبت نشده است.</p>
         )}
+        {permissionState !== 'unsupported' ? (
+          <p className="settings-text settings-text--muted">
+            وضعیت اجازهٔ مکان: {PERMISSION_LABEL_FA[permissionState]}
+          </p>
+        ) : null}
 
         <div className="inline-actions">
           <button
@@ -194,6 +224,7 @@ export function EarthLocationSheet({
           </p>
         ) : null}
         {refineNote ? <Notice tone="info">{refineNote}</Notice> : null}
+        {coarseNote ? <Notice tone="warning">{coarseNote}</Notice> : null}
         {lowAccuracy ? (
           <Notice tone="warning">
             دقت گزارش‌شده پایین است ({formatNumber(location.accuracyM ?? 0, 0)} متر)؛ ممکن است
@@ -219,7 +250,7 @@ export function EarthLocationSheet({
             }
             submitLabel="ثبت این مختصات روی زمین"
             onSubmit={(observer) => {
-              onUseLocation(manualToGeoLocation(observer));
+              onUseLocation(observerLocationToGeo(observer));
               onClose();
             }}
             onCancel={() => setManualOpen(false)}

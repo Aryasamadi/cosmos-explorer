@@ -10,8 +10,11 @@ import {
   waitForMapError,
 } from './helpers';
 
-async function prepare(page: Parameters<typeof openApp>[0]): Promise<void> {
-  await installFixedDate(page);
+async function prepare(
+  page: Parameters<typeof openApp>[0],
+  fixedUtc?: string,
+): Promise<void> {
+  await installFixedDate(page, fixedUtc);
   await blockOsm(page);
   await openApp(page);
   await dismissHint(page);
@@ -68,6 +71,15 @@ test.describe('initial view 390 mobile', () => {
     await page.getByTestId('celestial-info-panel').getByRole('button', { name: 'بستن اطلاعات' }).click();
     await page.waitForTimeout(1800);
     await expect(page).toHaveScreenshot('moon-390.png');
+  });
+
+  test('moon-gibbous-390', async ({ page }) => {
+    await prepare(page, '2026-09-23T00:00:00.000Z');
+    await page.locator('.body-pill', { hasText: 'ماه' }).click();
+    await expect(page.getByTestId('celestial-info-panel')).toBeVisible();
+    await page.getByTestId('celestial-info-panel').getByRole('button', { name: 'بستن اطلاعات' }).click();
+    await page.waitForTimeout(1800);
+    await expect(page).toHaveScreenshot('moon-gibbous-390.png');
   });
 
   test('mars-390', async ({ page }) => {

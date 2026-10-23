@@ -8,8 +8,8 @@ export interface AppState {
   selectedBodyId: string;
   infoOpen: boolean;
   lowPower: boolean;
-  /** The user's selected location on the Earth, shared only by Earth UI. */
-  earthLocation: GeoLocation | null;
+  /** User-selected observer location, shared by Earth and Sky for this session. */
+  location: GeoLocation | null;
 }
 
 export type AppAction =
@@ -18,15 +18,15 @@ export type AppAction =
   | { type: 'toggle-info' }
   | { type: 'close-info' }
   | { type: 'set-low-power'; enabled: boolean }
-  | { type: 'set-earth-location'; location: GeoLocation }
-  | { type: 'clear-earth-location' };
+  | { type: 'set-location'; location: GeoLocation }
+  | { type: 'clear-location' };
 
 export const initialAppState: AppState = {
   mode: 'free',
   selectedBodyId: 'earth',
   infoOpen: false,
   lowPower: false,
-  earthLocation: null,
+  location: null,
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -60,10 +60,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return state.lowPower === action.enabled
         ? state
         : { ...state, lowPower: action.enabled };
-    case 'set-earth-location':
-      return { ...state, earthLocation: action.location };
-    case 'clear-earth-location':
-      return state.earthLocation === null ? state : { ...state, earthLocation: null };
+    case 'set-location':
+      return { ...state, location: action.location };
+    case 'clear-location':
+      return state.location === null ? state : { ...state, location: null };
     default:
       return state;
   }

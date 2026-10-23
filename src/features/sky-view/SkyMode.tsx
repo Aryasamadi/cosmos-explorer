@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ObserverLocation, SkySnapshot } from '../../astronomy/types';
 import { computeSkySnapshot, getPosition } from '../../astronomy/ephemeris/skySnapshot';
+import { appSimulationClock } from '../../astronomy/simulationClock';
+import {
+  describeDeviceLocationErrorFa,
+  DeviceLocationError,
+} from '../../geo/deviceLocation';
+import {
+  geoLocationToObserver,
+  observerLocationToGeo,
+} from '../../geo/locationAdapters';
+import { acquireSharedLocation } from '../../geo/locationService';
 import { getBodyById, getSkyBodies } from '../../catalog/bodies';
 import { useAppDispatch, useAppState } from '../../app/AppStateContext';
 import {
@@ -29,7 +39,7 @@ import { SkySettingsSheet } from './SkySettingsSheet';
 type LocationStatus = 'idle' | 'requesting' | 'denied' | 'error';
 
 export function SkyMode() {
-  const { selectedBodyId, infoOpen, lowPower } = useAppState();
+  const { selectedBodyId, infoOpen, lowPower, location: savedLocation } = useAppState();
   const dispatch = useAppDispatch();
   const sceneRef = useRef<SkyScene | null>(null);
   const lastSampleRef = useRef<OrientationSample | null>(null);
@@ -37,11 +47,14 @@ export function SkyMode() {
   const snapshotRef = useRef<SkySnapshot | null>(null);
   const mountedRef = useRef(true);
 
-  const [location, setLocation] = useState<ObserverLocation | null>(null);
+  const observerLocation = useMemo(
+    () => (savedLocation ? geoLocationToObserver(savedLocation) : null),
+    [savedLocation],
+  );
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle');
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
-  const [now, setNow] = useState(() => new Date());
-  const [customDate, setCustomDate] = useState(() => new Date());
+  const [now, setNow] = useState(() => appSimulationClock.nowUtc());
+  const [customDate, setCustomDate] = useState(() => appSimulationClock.nowUtc());
   const [liveTime, setLiveTime] = useState(true);
   const [headingOffset, setHeadingOffset] = useState(0);
   const [fov, setFov] = useState(65);
@@ -71,18 +84,21 @@ export function SkyMode() {
   }, []);
 
   useEffect(() => {
-    if (!liveTime || !location) return;
-    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    if (!liveTime || !observerLocation) return;
+    const timer = window.setInterval(
+      () => setNow(appSimulationClock.nowUtc()),
+      1000,
+    );
     return () => window.clearInterval(timer);
-  }, [liveTime, location]);
+  }, [liveTime, observerLocation]);
 
   const effectiveDate = liveTime ? now : customDate;
 
   const snapshotResult = useMemo(() => {
-    if (!location) return { snapshot: null, error: null as string | null };
+    if (!observerLocation) return { snapshot: null, error: null as string | null };
     try {
       return {
-        snapshot: computeSkySnapshot(effectiveDate, location),
+        snapshot: computeSkySnapshot(effectiveDate, observerLocation),
         error: null as string | null,
       };
     } catch (error) {
@@ -94,7 +110,7 @@ export function SkyMode() {
             : 'محاسبهٔ موقعیت اجرام انجام نشد.',
       };
     }
-  }, [effectiveDate, location]);
+  }, [effectiveDate, observerLocation]);
   const snapshot = snapshotResult.snapshot;
 
   useEffect(() => {
@@ -107,64 +123,38 @@ export function SkyMode() {
     : null;
   const solarBodies = getSkyBodies().filter((body) => Boolean(body.ephemerisTarget));
 
-  const requestLocation = useCallback((): void => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setLocationStatus('error');
-      setLocationMessage(
-        'این مرورگر API موقعیت مکانی را در اختیار برنامه قرار نمی‌دهد. مختصات را دستی وارد کنید.',
-      );
-      return;
-    }
+  const requestLocation = useCallback(async (): Promise<void> => {
     setLocationStatus('requesting');
     setLocationMessage(null);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        if (!mountedRef.current) return;
-        const height = position.coords.altitude;
-        setLocation({
-          latitudeDeg: position.coords.latitude,
-          longitudeDeg: position.coords.longitude,
-          heightM: height !== null && Number.isFinite(height) ? height : 0,
-          source: 'geolocation',
-          accuracyM:
-            Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : undefined,
-        });
-        setLocationStatus('idle');
-        setLocationMessage(null);
-      },
-      (error) => {
-        if (!mountedRef.current) return;
-        setLocationStatus(error.code === error.PERMISSION_DENIED ? 'denied' : 'error');
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            setLocationMessage(
-              'اجازهٔ دسترسی به موقعیت مکانی داده نشد. می‌توانید مختصات را دستی وارد کنید؛ برنامه به کار خود ادامه می‌دهد.',
-            );
-            break;
-          case error.POSITION_UNAVAILABLE:
-            setLocationMessage(
-              'موقعیت مکانی در دسترس نیست. GPS یا سرویس مکان دستگاه را بررسی کنید یا مختصات را دستی وارد کنید.',
-            );
-            break;
-          default:
-            setLocationMessage(
-              'دریافت موقعیت مکانی طول کشید و زمان‌بندی به پایان رسید. دوباره تلاش کنید یا مختصات را دستی وارد کنید.',
-            );
-        }
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
-    );
-  }, []);
+    try {
+      const fix = await acquireSharedLocation({ mode: 'quick' });
+      if (!mountedRef.current) return;
+      dispatch({ type: 'set-location', location: fix });
+      setLocationStatus('idle');
+      setLocationMessage(null);
+    } catch (error) {
+      if (!mountedRef.current) return;
+      const code = error instanceof DeviceLocationError ? error.code : 'error';
+      setLocationStatus(code === 'permission-denied' ? 'denied' : 'error');
+      setLocationMessage(describeDeviceLocationErrorFa(code));
+    }
+  }, [dispatch]);
 
-  const applyManualLocation = useCallback((nextLocation: ObserverLocation): void => {
-    setLocation(nextLocation);
-    setLocationStatus('idle');
-    setLocationMessage(null);
-  }, []);
+  const applyManualLocation = useCallback(
+    (nextLocation: ObserverLocation): void => {
+      dispatch({
+        type: 'set-location',
+        location: observerLocationToGeo(nextLocation),
+      });
+      setLocationStatus('idle');
+      setLocationMessage(null);
+    },
+    [dispatch],
+  );
 
   const handleLiveTimeChange = (enabled: boolean): void => {
     if (enabled) {
-      const current = new Date();
+      const current = appSimulationClock.nowUtc();
       setNow(current);
       setCustomDate(current);
     } else {
@@ -265,11 +255,11 @@ export function SkyMode() {
 
   return (
     <section className="mode-panel sky-mode" aria-label="آسمان واقعی">
-      {!location ? (
+      {!observerLocation ? (
         <ObserverSetup
           requesting={locationStatus === 'requesting'}
           errorMessage={locationMessage}
-          onRequestLocation={requestLocation}
+          onRequestLocation={() => void requestLocation()}
           onManualLocation={applyManualLocation}
         />
       ) : (
@@ -307,7 +297,7 @@ export function SkyMode() {
             <div className="sky-hud__meta">
               <span>
                 <IconPin size={13} />
-                {formatObserverLocation(location)}
+                {formatObserverLocation(observerLocation)}
               </span>
               {snapshot ? (
                 <span>
@@ -452,7 +442,7 @@ export function SkyMode() {
           <SkySettingsSheet
             open={settingsOpen}
             onClose={() => setSettingsOpen(false)}
-            location={location}
+            location={observerLocation}
             locationStatus={locationStatus}
             locationMessage={locationMessage}
             onRequestLocation={requestLocation}

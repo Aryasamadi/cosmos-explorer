@@ -235,14 +235,7 @@ test.describe('geolocation failure and privacy diagnostics', () => {
     await expect(page.getByRole('button', { name: /موقعیت شما/ })).toBeVisible();
   });
 
-  test('KNOWN DEFECT: Earth and Sky should share an already selected location', async ({
-    page,
-  }) => {
-    test.info().annotations.push({
-      type: 'known-defect',
-      description:
-        'SkyMode keeps its own local location state; appState.earthLocation is not consumed there',
-    });
+  test('Earth and Sky share an already selected location', async ({ page }) => {
     await installFixedDate(page);
     await blockOsm(page);
     await openApp(page);
@@ -253,20 +246,29 @@ test.describe('geolocation failure and privacy diagnostics', () => {
     await page.getByPlaceholder('مثلاً 51.3890').fill('31.2357');
     await page.getByRole('button', { name: 'ثبت این مختصات روی زمین' }).click();
     await page.getByRole('button', { name: 'آسمان واقعی' }).click();
-    await page.waitForTimeout(1000);
 
-    test.fail();
-    await expect(page.getByTestId('sky-hud')).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByTestId('sky-hud')).toContainText('۳۰٫۰۴۴');
+    await expect(page.getByTestId('sky-hud')).toContainText('۳۱٫۲۳۶');
   });
 
-  test('KNOWN DEFECT: Sky should reject insecure context before calling geolocation', async ({
-    page,
-  }) => {
-    test.info().annotations.push({
-      type: 'known-defect',
-      description:
-        'SkyMode.requestLocation calls navigator.geolocation directly without an isSecureContext check',
-    });
+  test('Sky location is visible when returning to Earth', async ({ page }) => {
+    await installFixedDate(page);
+    await blockOsm(page);
+    await openApp(page);
+    await page.getByRole('button', { name: 'آسمان واقعی' }).click();
+    await page.getByRole('button', { name: 'ورود مختصات به‌صورت دستی' }).click();
+    await page.getByPlaceholder('مثلاً 35.6892').fill('30.0444');
+    await page.getByPlaceholder('مثلاً 51.3890').fill('31.2357');
+    await page.getByRole('button', { name: 'استفاده از این مکان' }).click();
+    await expect(page.getByTestId('sky-hud')).toBeVisible();
+
+    await page.getByRole('button', { name: 'کاوش آزاد' }).click();
+    await expect(page.getByRole('button', { name: /موقعیت شما/ })).toContainText(
+      '۳۰٫۰۴۴',
+    );
+  });
+
+  test('Sky rejects insecure context before calling geolocation', async ({ page }) => {
     await page.addInitScript(() => {
       Object.defineProperty(window, 'isSecureContext', {
         value: false,
@@ -297,7 +299,64 @@ test.describe('geolocation failure and privacy diagnostics', () => {
     ).toBeVisible();
     await page.getByRole('button', { name: 'استفاده از موقعیت فعلی' }).click();
 
-    test.fail();
     await expect(page.getByRole('alert')).toContainText('HTTPS', { timeout: 3_000 });
+    await expect(
+      page.getByRole('button', { name: 'ورود مختصات به‌صورت دستی' }),
+    ).toBeVisible();
+  });
+
+  test('Sky reports permission denial without an automatic retry', async ({ page }) => {
+    await installFixedDate(page);
+    await blockOsm(page);
+    await installGeoMock(page, 'denied');
+    await openApp(page);
+    await page.getByRole('button', { name: 'آسمان واقعی' }).click();
+    await page.getByRole('button', { name: 'استفاده از موقعیت فعلی' }).click();
+
+    await expect(page.getByRole('alert')).toContainText('اجازهٔ موقعیت داده نشد');
+    expect(await readCounts(page)).toEqual({ high: 1, coarse: 0 });
+    await page.waitForTimeout(1_000);
+    expect(await readCounts(page)).toEqual({ high: 1, coarse: 0 });
+  });
+
+  test('a known denied permission is not sent to the browser API', async ({ page }) => {
+    await installFixedDate(page);
+    await blockOsm(page);
+    await installGeoMock(page, 'denied');
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'permissions', {
+        configurable: true,
+        value: {
+          query: async () => ({ state: 'denied' }),
+        },
+      });
+    });
+    await openApp(page);
+    await dismissHint(page);
+    await openEarthSheet(page);
+    await page.getByRole('button', { name: 'دریافت موقعیت دستگاه' }).click();
+
+    await expect(page.getByRole('alert')).toContainText('اجازهٔ موقعیت داده نشد');
+    expect(await readCounts(page)).toEqual({ high: 0, coarse: 0 });
+  });
+
+  test('a coarse fix is recorded without auto-focusing the globe', async ({ page }) => {
+    await installFixedDate(page);
+    await blockOsm(page);
+    await installGeoMock(page, 'coarse-success');
+    await openApp(page);
+    await dismissHint(page);
+    await openEarthSheet(page);
+    await page.getByRole('button', { name: 'دریافت موقعیت دستگاه' }).click();
+
+    await expect(page.getByText(/زوم روی محدودهٔ نامطمئن/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'موقعیت من' })).toBeVisible();
+    await expect(page.locator('.earth-map-status')).toHaveCount(0);
+    expect(await readCounts(page)).toEqual({ high: 1, coarse: 1 });
+
+    await page.getByRole('button', { name: 'بستن', exact: true }).click();
+    await expect(page.getByRole('button', { name: /موقعیت شما/ })).toContainText(
+      '۹۰۰',
+    );
   });
 });

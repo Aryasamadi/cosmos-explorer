@@ -27,7 +27,7 @@ CI همین مراحل را پیش از هر انتشار اجرا می‌کند
 همهٔ ارجاع‌های محلی دارایی‌ها با همان base شروع شوند. انتشار GitHub Pages فقط پس از
 موفقیت lint، typecheck، تست، build و این بررسی انجام می‌شود.
 
-## تشخیص فاز ۰ (۰٫۴٫۰)
+## تشخیص فاز ۰ و فاز ۱
 
 علاوه بر تست‌های production، یک suite تشخیصی جدا در `diagnostics/` وجود دارد:
 
@@ -38,15 +38,22 @@ npm run test:diagnostics:browser
 ```
 
 این suite شامل تست‌های ناوبری، نور/نجوم، cache، geolocation شبیه‌سازی‌شده و
-baselineهای تصویری است. نقص‌های شناخته‌شدهٔ فعلی با `test.fail`/`it.fails` علامت
-خورده‌اند و **در CI معمول اجرا نمی‌شوند**؛ بنابراین سبزبودن CI فعلی به معنی پوشش
-آن‌ها نیست. جزئیات، baselineها و محدودیت‌ها در
-[گزارش تشخیصی فاز ۰](mission-006-diagnostics.md) آمده است.
+baselineهای تصویری است. در فاز ۱، expected-failهای astronomy و geolocation برطرف
+شدند و فقط چهار نقص ناوبری (انتخاب اولیهٔ Earth، بازگشت focus/pose، و state بین
+حالت‌ها) با `test.fail` باقی مانده‌اند. این suite **در CI معمول اجرا نمی‌شود**؛
+بنابراین سبزبودن CI فعلی به معنی پوشش آن نیست. جزئیات در
+[گزارش فاز ۰](mission-006-diagnostics.md) و
+[گزارش فاز ۱](mission-007-phase1.md) آمده است.
 
 ## وضعیت اجرای فعلی
 
-- **۱۵۹ تست Vitest** در ۲۶ فایل و **۸ تست مرورگری Playwright**، همه سبز
+- **۱۸۱ تست Vitest** در ۳۰ فایل و **۸ تست مرورگری Playwright**، همه سبز
   (اجرا در ۲۰۲۶-۱۰-۲۳). نسخهٔ ۰٫۴٫۰ روی GitHub Pages منتشر و بررسی شده است.
+- فاز ۱: frame علمی مشترک (Sun/Moon/Mars)، فاز صحیح ماه/مریخ، LocationService
+  مشترک Earth/Sky، و ۱۲ baseline تصویری (شامل دو فاز ماه) بررسی شده‌اند. چهار تست
+  ناوبری همچنان expected-fail آگاهانه هستند و جزو محدودهٔ فاز ۱ نبودند. suite
+  browser diagnostics: ۴۰ تست (۳۶ pass + ۴ expected-fail)، ۰ unexpected؛ suite
+  astronomy: ۱۴/۱۴ pass.
 - `lint`: بدون خطا و بدون warning.
 - `typecheck`: بدون خطا با TypeScript strict.
 - `build`: موفق (شامل build با base path صفحات و `check:pages`).

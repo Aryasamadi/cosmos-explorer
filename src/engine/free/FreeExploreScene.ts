@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { computeSubsolarPoint } from '../../astronomy/ephemeris/subsolarPoint';
+import { computeReferenceFrame } from '../../astronomy/referenceFrame';
+import {
+  appSimulationClock,
+  SimulationClock,
+} from '../../astronomy/simulationClock';
 import { geodeticToUnitVector } from '../../geo/earthCoordinates';
 import {
   clampCameraDistance,
@@ -37,6 +41,7 @@ const MIN_EARTH_CAMERA_DISTANCE = 1.0006;
 export interface FreeExploreSceneOptions {
   container: HTMLElement;
   lowPower?: boolean;
+  clock?: SimulationClock;
   onSelectBody?: (bodyId: string) => void;
   onMapStatus?: (status: MapDetailStatus) => void;
   onEarthDetailStatus?: (status: EarthDetailStatus) => void;
@@ -88,6 +93,7 @@ export class FreeExploreScene {
   private readonly options: FreeExploreSceneOptions;
   private readonly resizeObserver: ResizeObserver | null;
   private readonly prefersReducedMotion: boolean;
+  private readonly clock: SimulationClock;
   private lowPower: boolean;
   private tween: CameraTween | null = null;
   private geoFocusTween: GeoFocusTween | null = null;
@@ -95,7 +101,7 @@ export class FreeExploreScene {
   private viewportWidth: number;
   private viewportHeight: number;
   private elapsedSeconds = 0;
-  private lastLightingUpdateMs = 0;
+  private lastAstronomyUpdateMs = 0;
   private disposed = false;
   private pointerDown: { x: number; y: number; time: number } | null = null;
 
@@ -108,6 +114,7 @@ export class FreeExploreScene {
     this.renderer = renderer;
     this.visual = visual;
     this.options = options;
+    this.clock = options.clock ?? appSimulationClock;
     this.lowPower = options.lowPower ?? false;
     this.prefersReducedMotion = prefersReducedMotion;
 
@@ -167,7 +174,7 @@ export class FreeExploreScene {
         ? null
         : new ResizeObserver(() => this.resize());
     this.resizeObserver?.observe(options.container);
-    this.updateEarthLighting(true);
+    this.updateAstronomy(true);
 
     this.loop = new RenderLoop((elapsed, delta) => this.renderFrame(elapsed, delta));
     this.loop.start();
@@ -225,12 +232,16 @@ export class FreeExploreScene {
 
   selectBody(bodyId: string | null): void {
     this.selectedBodyId = bodyId;
+    this.updateSelectionRing();
+  }
+
+  private updateSelectionRing(): void {
     const ring = this.visual.selectionRing;
-    if (!bodyId) {
+    if (!this.selectedBodyId) {
       ring.visible = false;
       return;
     }
-    const body = this.visual.bodies.get(bodyId);
+    const body = this.visual.bodies.get(this.selectedBodyId);
     if (!body) {
       ring.visible = false;
       return;
@@ -290,19 +301,13 @@ export class FreeExploreScene {
     }
     currentDirection.normalize();
 
-    // Approach the Moon and Mars mostly from their sunlit hemisphere. If we
-    // keep the camera's previous direction, selecting them from the overview
-    // often reveals only a thin backlit crescent.
-    const sun = this.visual.bodies.get('sun');
-    let direction = currentDirection;
-    if ((bodyId === 'moon' || bodyId === 'mars') && sun) {
-      const towardSun = sun.position.clone().sub(body.position).normalize();
-      direction = towardSun.multiplyScalar(0.72).addScaledVector(currentDirection, 0.28);
-      if (direction.lengthSq() < 1e-8) {
-        direction = currentDirection;
-      }
-      direction.normalize();
-    }
+    // Moon and Mars are viewed from the Earth-facing side so the visible phase
+    // corresponds to the geocentric reference phase. Other bodies use the
+    // existing camera approach direction.
+    const direction =
+      bodyId === 'moon' || bodyId === 'mars'
+        ? body.position.clone().negate().normalize()
+        : currentDirection;
 
     const distance = Math.max(body.radius * 4.6, body.radius + 1.5);
     const toPosition = body.position.clone().addScaledVector(direction, distance);
@@ -380,18 +385,14 @@ export class FreeExploreScene {
     };
   }
 
-  private updateEarthLighting(force = false): void {
+  private updateAstronomy(force = false): void {
     const nowMs = Date.now();
-    if (!force && nowMs - this.lastLightingUpdateMs < 30_000) {
+    if (!force && nowMs - this.lastAstronomyUpdateMs < 30_000) {
       return;
     }
-    this.lastLightingUpdateMs = nowMs;
-    const subsolar = computeSubsolarPoint(new Date(nowMs));
-    const direction = geodeticToUnitVector(
-      subsolar.latitudeDeg,
-      subsolar.longitudeDeg,
-    );
-    this.visual.setSubsolarDirection(direction);
+    this.lastAstronomyUpdateMs = nowMs;
+    this.visual.applyReferenceFrame(computeReferenceFrame(this.clock.nowUtc()));
+    this.updateSelectionRing();
   }
 
   private enforceEarthCollision(): void {
@@ -485,7 +486,7 @@ export class FreeExploreScene {
     this.enforceEarthCollision();
     this.controls.update();
     this.updateEarthProximity();
-    this.updateEarthLighting();
+    this.updateAstronomy();
     // Do not request tile sets for intermediate camera positions during a
     // fly-to. Detail fades still advance every frame.
     this.earthDetail.update({

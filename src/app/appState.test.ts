@@ -65,7 +65,7 @@ describe('application state', () => {
     ).toBe(enabled);
   });
 
-  it('keeps an Earth location across mode changes and clears it explicitly', () => {
+  it('keeps a shared location across mode changes and clears it explicitly', () => {
     const location = {
       latitudeDeg: 35.6892,
       longitudeDeg: 51.389,
@@ -75,16 +75,16 @@ describe('application state', () => {
       timestampMs: 1_760_000_000_000,
     };
     const withLocation = appReducer(initialAppState, {
-      type: 'set-earth-location',
+      type: 'set-location',
       location,
     });
-    expect(withLocation.earthLocation).toEqual(location);
+    expect(withLocation.location).toEqual(location);
     const sky = appReducer(withLocation, { type: 'set-mode', mode: 'sky' });
-    expect(sky.earthLocation).toEqual(location);
-    const cleared = appReducer(sky, { type: 'clear-earth-location' });
-    expect(cleared.earthLocation).toBeNull();
+    expect(sky.location).toEqual(location);
+    const cleared = appReducer(sky, { type: 'clear-location' });
+    expect(cleared.location).toBeNull();
     expect(
-      appReducer(cleared, { type: 'clear-earth-location' }),
+      appReducer(cleared, { type: 'clear-location' }),
     ).toBe(cleared);
   });
 });
