@@ -22,7 +22,12 @@
     "test:ci": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check:pages": "node scripts/verify-pages-build.mjs"
+    "check:pages": "node scripts/verify-pages-build.mjs",
+    "test:diagnostics:typecheck": "tsc -p tsconfig.diagnostics.json",
+    "test:diagnostics:astronomy": "vitest run --config vitest.diagnostics.config.ts",
+    "test:diagnostics:browser": "playwright test --config playwright.diagnostics.config.ts",
+    "test:diagnostics": "npm run test:diagnostics:typecheck && npm run test:diagnostics:astronomy && npm run test:diagnostics:browser",
+    "test:diagnostics:update": "playwright test --config playwright.diagnostics.config.ts --update-snapshots"
   },
   "dependencies": {
     "astronomy-engine": "^2.1.19",

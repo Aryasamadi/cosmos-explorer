@@ -203,6 +203,7 @@ npm run build
 - [هستهٔ جغرافیایی زمین، OSM و LOD](docs/earth-geography.md)
 - [مدل نجومی و مختصات](docs/astronomy-model.md)
 - [تست و اعتبارسنجی](docs/testing.md)
+- [گزارش تشخیصی فاز ۰](docs/mission-006-diagnostics.md)
 - [انتشار و GitHub Pages](docs/deployment.md)
 - [تصمیم‌های معماری](docs/decisions/)
 - [منابع، مجوز دارایی‌ها و انتساب](docs/attribution.md)

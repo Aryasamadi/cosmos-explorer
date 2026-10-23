@@ -27,6 +27,22 @@ CI همین مراحل را پیش از هر انتشار اجرا می‌کند
 همهٔ ارجاع‌های محلی دارایی‌ها با همان base شروع شوند. انتشار GitHub Pages فقط پس از
 موفقیت lint، typecheck، تست، build و این بررسی انجام می‌شود.
 
+## تشخیص فاز ۰ (۰٫۴٫۰)
+
+علاوه بر تست‌های production، یک suite تشخیصی جدا در `diagnostics/` وجود دارد:
+
+```bash
+npm run test:diagnostics:typecheck
+npm run test:diagnostics:astronomy
+npm run test:diagnostics:browser
+```
+
+این suite شامل تست‌های ناوبری، نور/نجوم، cache، geolocation شبیه‌سازی‌شده و
+baselineهای تصویری است. نقص‌های شناخته‌شدهٔ فعلی با `test.fail`/`it.fails` علامت
+خورده‌اند و **در CI معمول اجرا نمی‌شوند**؛ بنابراین سبزبودن CI فعلی به معنی پوشش
+آن‌ها نیست. جزئیات، baselineها و محدودیت‌ها در
+[گزارش تشخیصی فاز ۰](mission-006-diagnostics.md) آمده است.
+
 ## وضعیت اجرای فعلی
 
 - **۱۵۹ تست Vitest** در ۲۶ فایل و **۸ تست مرورگری Playwright**، همه سبز
