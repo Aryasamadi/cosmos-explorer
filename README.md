@@ -9,9 +9,8 @@
 - نسخهٔ مخزن: **۰٫۴٫۰**
 - مرحله: کاوشگر قابل اجرا با هستهٔ علمی، زمین جغرافیاییِ پیوسته، تصویر ماهواره‌ای
   چندرزولوشنی، روشنایی روز/شب UTC و رابط مکان فشرده؛ تست‌شده و مستند.
-- نسخهٔ آنلاین (۰٫۳٫۰، تأییدشده در ۲۰۲۶-۱۰-۲۳):
-  **[aryasamadi.github.io/cosmos-explorer](https://aryasamadi.github.io/cosmos-explorer/)**.
-  انتشار ۰٫۴٫۰ در محدودهٔ این تغییرات انجام نشده است.
+- نسخهٔ آنلاین (۰٫۴٫۰، تأییدشده در ۲۰۲۶-۱۰-۲۳):
+  **[aryasamadi.github.io/cosmos-explorer](https://aryasamadi.github.io/cosmos-explorer/)**
 - مخزن: [github.com/Aryasamadi/cosmos-explorer](https://github.com/Aryasamadi/cosmos-explorer)
 - بافت پایه، هرم تصویر ماهواره‌ای همراه برنامه، محاسبات نجومی و مکان دستی به سرویس خارجی یا
   کلید دسترسی وابسته نیستند. کاشی‌های کارتوگرافی OpenStreetMap فقط با نزدیک‌شدن دوربین و
