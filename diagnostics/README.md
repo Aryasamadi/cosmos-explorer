@@ -25,6 +25,9 @@ npm run test:diagnostics:update
 - تست‌های ناوبری M2 شامل state پایدار، camera pose، keyboard/mouse/touch و
   جزئیات focus هستند و اکنون pass عادی‌اند. هیچ تست expected-fail پنهان یا
   حذف نشده است.
+- `integration.spec.ts` نسخهٔ واحد M1+M2 را در شش viewport از ۳۲۰×۵۶۸ تا
+  ۱۹۲۰×۱۰۸۰، چرخه‌های Earth→Moon→Earth و Free→Sky→Free، و نبود خطای
+  کنسول/pageerror/درخواست ناموفق بررسی می‌کند. OSM در این تست mock می‌شود.
 - `installFixedDate(page, utc)` امکان اجرای هر سناریو در تاریخ UTC دلخواه را می‌دهد؛
   baselineهای دو فاز ماه در تاریخ‌های ۲۰۲۶-۰۶-۲۱ و ۲۰۲۶-۰۹-۲۳ ساخته شده‌اند.
 - baselineهای تصویری با Chrome headless/SwiftShader، DPR=۱ و locale=`fa-IR` تولید
@@ -40,5 +43,7 @@ npm run test:diagnostics:update
   نمی‌گیرند.
 - نتیجهٔ WebGL در محیط SwiftShader با GPU موبایل قابل مقایسه نیست.
 
-گزارش‌ها: [`docs/mission-006-diagnostics.md`](../docs/mission-006-diagnostics.md) و
-[`docs/mission-007-phase1.md`](../docs/mission-007-phase1.md)
+گزارش‌ها: [`docs/mission-006-diagnostics.md`](../docs/mission-006-diagnostics.md)،
+[`docs/mission-007-phase1.md`](../docs/mission-007-phase1.md)،
+[`docs/mission-010-m2.md`](../docs/mission-010-m2.md) و
+[`docs/mission-011-integration.md`](../docs/mission-011-integration.md)

@@ -27,7 +27,7 @@ CI همین مراحل را پیش از هر انتشار اجرا می‌کند
 همهٔ ارجاع‌های محلی دارایی‌ها با همان base شروع شوند. انتشار GitHub Pages فقط پس از
 موفقیت lint، typecheck، تست، build و این بررسی انجام می‌شود.
 
-## تشخیص فاز ۰، فاز ۱ و M2
+## تشخیص فاز ۰، فاز ۱، M2 و یکپارچگی
 
 علاوه بر تست‌های production، یک suite تشخیصی جدا در `diagnostics/` وجود دارد:
 
@@ -42,17 +42,18 @@ baselineهای تصویری است. در فاز ۱، expected-failهای astrono
 شدند. M2 نیز چهار نقص ناوبری (انتخاب اولیهٔ Earth، بازگشت focus/pose پس از
 Earth→Moon→Earth، و حفظ state بین Free/Sky) را رفع کرد؛ این چهار تست اکنون بدون
 `test.fail` و با همان assertionهای قبلی pass می‌شوند. suite مرورگری اکنون
-**۴۲ تست عادی** دارد (۷ ناوبری، ۸ cache، ۱۵ geolocation، ۱ محیط، ۱۱ visual) و هیچ
-expected-fail پنهان یا حذف‌شده‌ای ندارد. این suite **در CI معمول اجرا نمی‌شود**؛
-بنابراین سبزبودن CI فعلی به معنی پوشش آن نیست. جزئیات در
-[گزارش فاز ۰](mission-006-diagnostics.md)، [گزارش فاز ۱](mission-007-phase1.md) و
-[گزارش M2](mission-010-m2.md) آمده است.
+**۴۳ تست عادی** دارد (۷ ناوبری، ۸ cache، ۱۵ geolocation، ۱ محیط، ۱۱ visual و
+۱ integration) و هیچ expected-fail پنهان یا حذف‌شده‌ای ندارد. این suite **در CI
+معمول اجرا نمی‌شود**؛ بنابراین سبزبودن CI فعلی به معنی پوشش آن نیست. جزئیات در
+[گزارش فاز ۰](mission-006-diagnostics.md)، [گزارش فاز ۱](mission-007-phase1.md)،
+[گزارش M2](mission-010-m2.md) و [گزارش یکپارچگی M1+M2](mission-011-integration.md)
+آمده است.
 
 ## وضعیت اجرای فعلی
 
 - **۱۸۳ تست Vitest** در ۳۱ فایل و **۱۱ تست مرورگری Playwright**، همه سبز
   (اجرا در ۲۰۲۶-۱۰-۲۵). نسخهٔ ۰٫۴٫۰ روی GitHub Pages منتشر و بررسی شده است؛
-  M1 و M2 روی شاخه‌های مستقل‌اند و merge یا deploy نشده‌اند.
+  M1+M2 در شاخهٔ `mission-011-integration` آماده‌اند اما merge یا deploy نشده‌اند.
 - فاز ۱: frame علمی مشترک (Sun/Moon/Mars)، فاز صحیح ماه/مریخ، LocationService
   مشترک Earth/Sky، و ۱۲ baseline تصویری (شامل دو فاز ماه) بررسی شده‌اند.
 - M1 UI: تایپوگرافی خوانا، هدف لمسی ۴۴px، focus trap/inert، چیدمان مستقل دسکتاپ و
@@ -60,7 +61,11 @@ expected-fail پنهان یا حذف‌شده‌ای ندارد. این suite **
   ۱۱ E2E سبز بودند.
 - M2: شروع آزاد بدون انتخاب جرم، حفظ جداگانهٔ انتخاب و pose هر mode،
   orbit/pan/zoom با ماوس و لمس، و میانبرهای مستند کیبورد. چهار نقص ناوبری قبلی
-  به تست عادی تبدیل شدند؛ **۴۲/۴۲ browser diagnostics** (شامل ۷ ناوبری و ۱۱ visual)،
+  به تست عادی تبدیل شدند.
+- M1+M2 integration: شش viewport از ۳۲۰×۵۶۸ تا ۱۹۲۰×۱۰۸۰، چرخهٔ
+  Earth→Moon→Earth، Free→Sky→Free و نبود خطای کنسول/شبکه در
+  `diagnostics/integration.spec.ts` بررسی شد. **۴۳/۴۳ browser diagnostics**
+  (شامل ۷ ناوبری، ۸ cache، ۱۵ geolocation، ۱ محیط، ۱۱ visual و ۱ integration)،
   **۱۴/۱۴ astronomy diagnostics** و typecheck تشخیصی سبزند. baselineها پس از حذف
   انتخاب اولیهٔ Earth بازتولید و بازبینی شدند.
 - `lint`: بدون خطا و بدون warning.
