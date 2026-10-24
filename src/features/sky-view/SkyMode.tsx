@@ -38,8 +38,13 @@ import { SkySettingsSheet } from './SkySettingsSheet';
 
 type LocationStatus = 'idle' | 'requesting' | 'denied' | 'error';
 
-export function SkyMode() {
-  const { selectedBodyId, infoOpen, lowPower, location: savedLocation } = useAppState();
+export function SkyMode({ active }: { active: boolean }) {
+  const {
+    skySelectedBodyId: selectedBodyId,
+    infoOpen,
+    lowPower,
+    location: savedLocation,
+  } = useAppState();
   const dispatch = useAppDispatch();
   const sceneRef = useRef<SkyScene | null>(null);
   const lastSampleRef = useRef<OrientationSample | null>(null);
@@ -84,13 +89,19 @@ export function SkyMode() {
   }, []);
 
   useEffect(() => {
-    if (!liveTime || !observerLocation) return;
+    if (!active || !liveTime || !observerLocation) return;
     const timer = window.setInterval(
       () => setNow(appSimulationClock.nowUtc()),
       1000,
     );
     return () => window.clearInterval(timer);
-  }, [liveTime, observerLocation]);
+  }, [active, liveTime, observerLocation]);
+
+  useEffect(() => {
+    if (!active && cameraStatus === 'active') {
+      stopCamera();
+    }
+  }, [active, cameraStatus, stopCamera]);
 
   const effectiveDate = liveTime ? now : customDate;
 
@@ -117,10 +128,9 @@ export function SkyMode() {
     snapshotRef.current = snapshot;
   }, [snapshot]);
 
-  const selectedBody = getBodyById(selectedBodyId);
-  const selectedPosition = snapshot
-    ? getPosition(snapshot, selectedBodyId) ?? null
-    : null;
+  const selectedBody = selectedBodyId ? getBodyById(selectedBodyId) : undefined;
+  const selectedPosition =
+    snapshot && selectedBodyId ? getPosition(snapshot, selectedBodyId) ?? null : null;
   const solarBodies = getSkyBodies().filter((body) => Boolean(body.ephemerisTarget));
 
   const requestLocation = useCallback(async (): Promise<void> => {
@@ -254,7 +264,7 @@ export function SkyMode() {
         : 'warning';
 
   return (
-    <section className="mode-panel sky-mode" aria-label="آسمان واقعی">
+    <section className="mode-panel sky-mode" aria-label="آسمان واقعی" hidden={!active}>
       {!observerLocation ? (
         <ObserverSetup
           requesting={locationStatus === 'requesting'}
@@ -272,17 +282,20 @@ export function SkyMode() {
             playsInline
             aria-hidden="true"
           />
-          <SkyViewport
-            sceneRef={sceneRef}
-            snapshot={snapshot}
-            selectedBodyId={selectedBodyId}
-            lowPower={lowPower}
-            showGrid={showGrid}
-            cameraOverlayActive={cameraOverlayActive}
-            fov={fov}
-            onSelectBody={handleSelectBody}
-            onFovChange={setFov}
-          />
+          {observerLocation ? (
+            <SkyViewport
+              sceneRef={sceneRef}
+              snapshot={snapshot}
+              selectedBodyId={selectedBodyId}
+              lowPower={lowPower}
+              active={active}
+              showGrid={showGrid}
+              cameraOverlayActive={cameraOverlayActive}
+              fov={fov}
+              onSelectBody={handleSelectBody}
+              onFovChange={setFov}
+            />
+          ) : null}
 
           <div className="sky-hud glass" data-testid="sky-hud">
             <div className="sky-hud__main">
@@ -420,7 +433,7 @@ export function SkyMode() {
             </div>
           </div>
 
-          {selectedBody ? (
+          {active && selectedBody ? (
             <CelestialInfoPanel
               body={selectedBody}
               mode="sky"

@@ -27,7 +27,7 @@ CI همین مراحل را پیش از هر انتشار اجرا می‌کند
 همهٔ ارجاع‌های محلی دارایی‌ها با همان base شروع شوند. انتشار GitHub Pages فقط پس از
 موفقیت lint، typecheck، تست، build و این بررسی انجام می‌شود.
 
-## تشخیص فاز ۰ و فاز ۱
+## تشخیص فاز ۰، فاز ۱ و M2
 
 علاوه بر تست‌های production، یک suite تشخیصی جدا در `diagnostics/` وجود دارد:
 
@@ -39,23 +39,30 @@ npm run test:diagnostics:browser
 
 این suite شامل تست‌های ناوبری، نور/نجوم، cache، geolocation شبیه‌سازی‌شده و
 baselineهای تصویری است. در فاز ۱، expected-failهای astronomy و geolocation برطرف
-شدند و فقط چهار نقص ناوبری (انتخاب اولیهٔ Earth، بازگشت focus/pose، و state بین
-حالت‌ها) با `test.fail` باقی مانده‌اند. این suite **در CI معمول اجرا نمی‌شود**؛
+شدند. M2 نیز چهار نقص ناوبری (انتخاب اولیهٔ Earth، بازگشت focus/pose پس از
+Earth→Moon→Earth، و حفظ state بین Free/Sky) را رفع کرد؛ این چهار تست اکنون بدون
+`test.fail` و با همان assertionهای قبلی pass می‌شوند. suite مرورگری اکنون
+**۴۲ تست عادی** دارد (۷ ناوبری، ۸ cache، ۱۵ geolocation، ۱ محیط، ۱۱ visual) و هیچ
+expected-fail پنهان یا حذف‌شده‌ای ندارد. این suite **در CI معمول اجرا نمی‌شود**؛
 بنابراین سبزبودن CI فعلی به معنی پوشش آن نیست. جزئیات در
-[گزارش فاز ۰](mission-006-diagnostics.md) و
-[گزارش فاز ۱](mission-007-phase1.md) آمده است.
+[گزارش فاز ۰](mission-006-diagnostics.md)، [گزارش فاز ۱](mission-007-phase1.md) و
+[گزارش M2](mission-010-m2.md) آمده است.
 
 ## وضعیت اجرای فعلی
 
-- **۱۸۲ تست Vitest** در ۳۱ فایل و **۱۱ تست مرورگری Playwright**، همه سبز
-  (اجرا در ۲۰۲۶-۱۰-۲۳). نسخهٔ ۰٫۴٫۰ روی GitHub Pages منتشر و بررسی شده است.
+- **۱۸۳ تست Vitest** در ۳۱ فایل و **۱۱ تست مرورگری Playwright**، همه سبز
+  (اجرا در ۲۰۲۶-۱۰-۲۵). نسخهٔ ۰٫۴٫۰ روی GitHub Pages منتشر و بررسی شده است؛
+  M1 و M2 روی شاخه‌های مستقل‌اند و merge یا deploy نشده‌اند.
 - فاز ۱: frame علمی مشترک (Sun/Moon/Mars)، فاز صحیح ماه/مریخ، LocationService
-  مشترک Earth/Sky، و ۱۲ baseline تصویری (شامل دو فاز ماه) بررسی شده‌اند. چهار تست
-  ناوبری همچنان expected-fail آگاهانه هستند و جزو محدودهٔ فاز ۱ نبودند. suite
-  browser diagnostics: ۴۰ تست (۳۶ pass + ۴ expected-fail)، ۰ unexpected؛ suite
-  astronomy: ۱۴/۱۴ pass.
+  مشترک Earth/Sky، و ۱۲ baseline تصویری (شامل دو فاز ماه) بررسی شده‌اند.
 - M1 UI: تایپوگرافی خوانا، هدف لمسی ۴۴px، focus trap/inert، چیدمان مستقل دسکتاپ و
-  ۳ تست مرورگری جدید برای اندازه/دسترس‌پذیری اضافه شد. ۱۸۲ unit و ۱۱ E2E سبزند.
+  ۳ تست مرورگری جدید برای اندازه/دسترس‌پذیری اضافه شد. در زمان M1، ۱۸۲ unit و
+  ۱۱ E2E سبز بودند.
+- M2: شروع آزاد بدون انتخاب جرم، حفظ جداگانهٔ انتخاب و pose هر mode،
+  orbit/pan/zoom با ماوس و لمس، و میانبرهای مستند کیبورد. چهار نقص ناوبری قبلی
+  به تست عادی تبدیل شدند؛ **۴۲/۴۲ browser diagnostics** (شامل ۷ ناوبری و ۱۱ visual)،
+  **۱۴/۱۴ astronomy diagnostics** و typecheck تشخیصی سبزند. baselineها پس از حذف
+  انتخاب اولیهٔ Earth بازتولید و بازبینی شدند.
 - `lint`: بدون خطا و بدون warning.
 - `typecheck`: بدون خطا با TypeScript strict.
 - `build`: موفق (شامل build با base path صفحات و `check:pages`).

@@ -7,8 +7,9 @@ import { SceneFallback } from '../../components/SceneFallback';
 interface SkyViewportProps {
   sceneRef: RefObject<SkyScene | null>;
   snapshot: SkySnapshot | null;
-  selectedBodyId: string;
+  selectedBodyId: string | null;
   lowPower: boolean;
+  active: boolean;
   showGrid: boolean;
   cameraOverlayActive: boolean;
   fov: number;
@@ -21,6 +22,7 @@ export function SkyViewport({
   snapshot,
   selectedBodyId,
   lowPower,
+  active,
   showGrid,
   cameraOverlayActive,
   fov,
@@ -28,6 +30,7 @@ export function SkyViewport({
   onFovChange,
 }: SkyViewportProps) {
   const support = useWebGLSupport();
+  const activeRef = useRef(active);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [contextLost, setContextLost] = useState(false);
@@ -43,6 +46,7 @@ export function SkyViewport({
       try {
         const scene = SkyScene.create({
           container: node,
+          active: activeRef.current,
           showGrid: true,
           initialFov: 65,
           onSelectBody,
@@ -77,6 +81,11 @@ export function SkyViewport({
   };
 
   useEffect(() => {
+    activeRef.current = active;
+    sceneRef.current?.setActive(active);
+  }, [active, sceneRef, status]);
+
+  useEffect(() => {
     sceneRef.current?.setLowPower(lowPower);
   }, [lowPower, sceneRef, status]);
 
@@ -102,7 +111,9 @@ export function SkyViewport({
       return;
     }
     lastAimRef.current = { scene, bodyId: selectedBodyId };
-    const position = snapshot.positions.find((item) => item.bodyId === selectedBodyId);
+    const position = selectedBodyId
+      ? snapshot.positions.find((item) => item.bodyId === selectedBodyId)
+      : undefined;
     if (position?.isAboveHorizon) {
       scene.lookAtHorizontal(position.horizontal);
     }

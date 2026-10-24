@@ -16,6 +16,7 @@ import { createSkyObjects, type SkyObjectsLayer } from './skyObjects';
 export interface SkySceneOptions {
   container: HTMLElement;
   lowPower?: boolean;
+  active?: boolean;
   showGrid?: boolean;
   initialFov?: number;
   onSelectBody?: (bodyId: string) => void;
@@ -61,6 +62,7 @@ export class SkyScene {
   private cameraOverlayActive = false;
   private showGrid: boolean;
   private lowPower: boolean;
+  private active: boolean;
   private pinch: { startDistance: number; startFov: number } | null = null;
   private tap: { x: number; y: number; moved: number } | null = null;
   private disposed = false;
@@ -74,6 +76,7 @@ export class SkyScene {
     this.labelRenderer = labelRenderer;
     this.options = options;
     this.lowPower = options.lowPower ?? false;
+    this.active = options.active ?? true;
     this.showGrid = options.showGrid ?? true;
     this.fovDeg = clamp(options.initialFov ?? 65, MIN_FOV, MAX_FOV);
 
@@ -120,6 +123,7 @@ export class SkyScene {
     this.loop = new RenderLoop(() => this.renderFrame());
     this.loop.start();
     this.resize();
+    this.setActive(this.active);
   }
 
   static create(options: SkySceneOptions): SkyScene {
@@ -263,6 +267,14 @@ export class SkyScene {
     this.objects.setSelected(bodyId);
   }
 
+  setActive(active: boolean): void {
+    this.active = active;
+    this.loop.setPaused(!active);
+    if (active) {
+      this.resize();
+    }
+  }
+
   setLowPower(enabled: boolean): void {
     this.lowPower = enabled;
     this.renderer.setPixelRatio(SkyScene.pixelRatio(enabled));
@@ -290,7 +302,7 @@ export class SkyScene {
   }
 
   private resize(): void {
-    if (this.disposed) return;
+    if (this.disposed || !this.active) return;
     const width = Math.max(this.options.container.clientWidth, 1);
     const height = Math.max(this.options.container.clientHeight, 1);
     this.camera.aspect = width / height;

@@ -17,31 +17,17 @@ function pressedBody(page: Page) {
 }
 
 test.describe('navigation and state preservation diagnostics', () => {
-  test('KNOWN DEFECT: initial view should be free-space with no forced Earth selection', async ({
-    page,
-  }) => {
-    test.info().annotations.push({
-      type: 'known-defect',
-      description: 'initialAppState in src/app/appState.ts selects Earth by default',
-    });
+  test('initial view opens without a forced Earth selection', async ({ page }) => {
     await installFixedDate(page);
     await blockOsm(page);
     await openApp(page);
     await dismissHint(page);
     await expect(page.locator('.scene-loading')).toBeHidden();
 
-    test.fail();
     await expect(pressedBody(page)).toHaveCount(0, { timeout: 3_000 });
   });
 
-  test('KNOWN DEFECT: Earth -> Moon -> Earth should restore the previous Earth close view', async ({
-    page,
-  }) => {
-    test.info().annotations.push({
-      type: 'known-defect',
-      description:
-        'App.tsx unmounts FreeExploreMode; focusBody(earth) resets to overview instead of restoring the prior close view',
-    });
+  test('Earth -> Moon -> Earth restores the previous Earth close view', async ({ page }) => {
     await installFixedDate(page);
     await installMockOsm(page);
     await openApp(page);
@@ -59,19 +45,11 @@ test.describe('navigation and state preservation diagnostics', () => {
     await page.locator('.body-pill', { hasText: 'زمین' }).click();
     await page.waitForTimeout(2600);
 
-    test.fail();
     await expect(pressedBody(page)).toHaveText('زمین', { timeout: 3_000 });
     await expect(mapBefore).toContainText('جزئیات نقشه فعال', { timeout: 3_000 });
   });
 
-  test('KNOWN DEFECT: Free -> Sky -> Free should preserve selected Earth context', async ({
-    page,
-  }) => {
-    test.info().annotations.push({
-      type: 'known-defect',
-      description:
-        'Mode switch unmounts the scene; returning to free mode keeps selectedBodyId=sun and starts a new scene',
-    });
+  test('Free -> Sky -> Free preserves the selected Earth context', async ({ page }) => {
     await installFixedDate(page);
     await installMockOsm(page);
     await openApp(page);
@@ -79,6 +57,7 @@ test.describe('navigation and state preservation diagnostics', () => {
 
     await focusManualLocation(page, 30.0444, 31.2357);
     await waitForMapReady(page);
+    await page.locator('.body-pill', { hasText: 'زمین' }).click();
 
     await page.getByRole('button', { name: 'آسمان واقعی' }).click();
     // Phase 1 shares the selected location with Sky, so the sky HUD opens
@@ -87,19 +66,13 @@ test.describe('navigation and state preservation diagnostics', () => {
     await page.getByRole('button', { name: 'کاوش آزاد' }).click();
     await page.waitForTimeout(3200);
 
-    test.fail();
     await expect(pressedBody(page)).toHaveText('زمین', { timeout: 3_000 });
     await expect(
       page.locator('.earth-map-status').filter({ hasText: 'جزئیات نقشه فعال' }),
     ).toBeVisible({ timeout: 3_000 });
   });
 
-  test('KNOWN DEFECT: camera pose should survive a mode round trip', async ({ page }) => {
-    test.info().annotations.push({
-      type: 'known-defect',
-      description:
-        'The renderer and camera are recreated on mode switch; no camera pose is persisted or restored',
-    });
+  test('camera pose survives a mode round trip', async ({ page }) => {
     await installFixedDate(page);
     await blockOsm(page);
     await openApp(page);
@@ -116,8 +89,119 @@ test.describe('navigation and state preservation diagnostics', () => {
     await page.waitForTimeout(3200);
     const after = await captureCanvasSignature(page);
 
-    test.fail();
     expect(meanAbsoluteDifference(before, after)).toBeLessThan(5);
+  });
+
+  test('mouse and keyboard navigation move the camera and Home restores it', async ({ page }) => {
+    test.setTimeout(360_000);
+    await installFixedDate(page);
+    await blockOsm(page);
+    await openApp(page);
+    await dismissHint(page);
+    const initial = await captureCanvasSignature(page);
+
+    await page.mouse.move(195, 430);
+    await page.mouse.down();
+    await page.mouse.move(265, 465, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    const dragged = await captureCanvasSignature(page);
+    expect(meanAbsoluteDifference(initial, dragged)).toBeGreaterThan(0.3);
+
+    await page.mouse.move(195, 430);
+    await page.mouse.down({ button: 'right' });
+    await page.mouse.move(245, 460, { steps: 5 });
+    await page.mouse.up({ button: 'right' });
+    await page.waitForTimeout(400);
+    const panned = await captureCanvasSignature(page);
+    expect(meanAbsoluteDifference(dragged, panned)).toBeGreaterThan(0.2);
+
+    await page.keyboard.press('Shift+ArrowRight');
+    await page.waitForTimeout(300);
+    const keyPanned = await captureCanvasSignature(page);
+    expect(meanAbsoluteDifference(panned, keyPanned)).toBeGreaterThan(0.1);
+
+    await page.mouse.wheel(0, -360);
+    await page.waitForTimeout(400);
+    const zoomed = await captureCanvasSignature(page);
+    expect(meanAbsoluteDifference(keyPanned, zoomed)).toBeGreaterThan(0.2);
+
+    await page.keyboard.press('Home');
+    await page.waitForTimeout(1500);
+    const home = await captureCanvasSignature(page);
+    expect(meanAbsoluteDifference(initial, home)).toBeLessThan(5);
+
+    await page.keyboard.press('Digit2');
+    await page.waitForTimeout(1500);
+    await expect(pressedBody(page)).toHaveText('ماه');
+  });
+
+  test('touch drag and pinch reach the free-space controls', async ({ page }) => {
+    test.setTimeout(300_000);
+    await installFixedDate(page);
+    await blockOsm(page);
+    await openApp(page);
+    await dismissHint(page);
+    const client = await page.context().newCDPSession(page);
+    const initial = await captureCanvasSignature(page);
+
+    const point = (x: number, y: number, id: number) => ({
+      x,
+      y,
+      id,
+      radiusX: 2,
+      radiusY: 2,
+      force: 1,
+    });
+
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [point(195, 430, 1)],
+    });
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [point(260, 470, 1)],
+    });
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+    await page.waitForTimeout(500);
+    const dragged = await captureCanvasSignature(page);
+    expect(meanAbsoluteDifference(initial, dragged)).toBeGreaterThan(0.2);
+
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [point(145, 420, 2), point(245, 420, 3)],
+    });
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [point(105, 420, 2), point(285, 420, 3)],
+    });
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+    await page.waitForTimeout(500);
+    const pinched = await captureCanvasSignature(page);
+    expect(meanAbsoluteDifference(dragged, pinched)).toBeGreaterThan(0.2);
+
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [point(145, 420, 4), point(245, 420, 5)],
+    });
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [point(185, 450, 4), point(285, 450, 5)],
+    });
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+    await page.waitForTimeout(500);
+    const touchPanned = await captureCanvasSignature(page);
+    expect(meanAbsoluteDifference(pinched, touchPanned)).toBeGreaterThan(0.1);
+    await client.detach();
   });
 
   test('manual return to the saved location still reloads map detail from cache', async ({

@@ -42,7 +42,8 @@ export function App() {
       </header>
 
       <main className="app-main" id="main-content" tabIndex={-1}>
-        {mode === 'free' ? <FreeExploreMode /> : <SkyMode />}
+        <FreeExploreMode active={mode === 'free'} />
+        <SkyMode active={mode === 'sky'} />
       </main>
 
       <SettingsDialog

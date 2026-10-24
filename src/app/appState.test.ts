@@ -2,9 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { appReducer, initialAppState } from './appState';
 
 describe('application state', () => {
-  it('selects a valid body and opens its info panel', () => {
+  it('starts with no forced body selection in either mode', () => {
+    expect(initialAppState.freeSelectedBodyId).toBeNull();
+    expect(initialAppState.skySelectedBodyId).toBeNull();
+    expect(initialAppState.infoOpen).toBe(false);
+  });
+
+  it('selects a valid body in the active mode and opens its info panel', () => {
     const next = appReducer(initialAppState, { type: 'select-body', bodyId: 'moon' });
-    expect(next.selectedBodyId).toBe('moon');
+    expect(next.freeSelectedBodyId).toBe('moon');
+    expect(next.skySelectedBodyId).toBeNull();
     expect(next.infoOpen).toBe(true);
   });
 
@@ -14,35 +21,32 @@ describe('application state', () => {
     ).toBe(initialAppState);
   });
 
-  it('closes the info panel when changing modes and keeps a valid selection', () => {
-    const withMoon = appReducer(initialAppState, {
+  it('keeps a separate selection per mode across round trips', () => {
+    const freeMoon = appReducer(initialAppState, {
       type: 'select-body',
       bodyId: 'moon',
     });
-    const sky = appReducer(withMoon, { type: 'set-mode', mode: 'sky' });
+    const sky = appReducer(freeMoon, { type: 'set-mode', mode: 'sky' });
     expect(sky.mode).toBe('sky');
-    expect(sky.selectedBodyId).toBe('moon');
+    expect(sky.freeSelectedBodyId).toBe('moon');
+    expect(sky.skySelectedBodyId).toBeNull();
     expect(sky.infoOpen).toBe(false);
 
-    const sun = appReducer(initialAppState, { type: 'select-body', bodyId: 'sun' });
-    const earthOnly = appReducer(sun, { type: 'set-mode', mode: 'free' });
-    expect(earthOnly.selectedBodyId).toBe('sun');
+    const skyMars = appReducer(sky, { type: 'select-body', bodyId: 'mars' });
+    expect(skyMars.skySelectedBodyId).toBe('mars');
+    expect(skyMars.freeSelectedBodyId).toBe('moon');
 
-    const sirius = appReducer(
-      { ...initialAppState, mode: 'sky' },
-      {
-        type: 'select-body',
-        bodyId: 'sirius',
-      },
-    );
-    const free = appReducer(sirius, { type: 'set-mode', mode: 'free' });
-    expect(free.selectedBodyId).toBe('earth');
+    const freeAgain = appReducer(skyMars, { type: 'set-mode', mode: 'free' });
+    expect(freeAgain.mode).toBe('free');
+    expect(freeAgain.freeSelectedBodyId).toBe('moon');
+    expect(freeAgain.skySelectedBodyId).toBe('mars');
+    expect(freeAgain.infoOpen).toBe(false);
   });
 
-  it('replaces an invisible selection when entering sky mode', () => {
-    const withEarth = appReducer(initialAppState, { type: 'toggle-info' });
-    const sky = appReducer(withEarth, { type: 'set-mode', mode: 'sky' });
-    expect(sky.selectedBodyId).toBe('sun');
+  it('does not invent a fallback body when a mode has no selection', () => {
+    const sky = appReducer(initialAppState, { type: 'set-mode', mode: 'sky' });
+    expect(sky.freeSelectedBodyId).toBeNull();
+    expect(sky.skySelectedBodyId).toBeNull();
     expect(sky.infoOpen).toBe(false);
   });
 
@@ -83,8 +87,6 @@ describe('application state', () => {
     expect(sky.location).toEqual(location);
     const cleared = appReducer(sky, { type: 'clear-location' });
     expect(cleared.location).toBeNull();
-    expect(
-      appReducer(cleared, { type: 'clear-location' }),
-    ).toBe(cleared);
+    expect(appReducer(cleared, { type: 'clear-location' })).toBe(cleared);
   });
 });

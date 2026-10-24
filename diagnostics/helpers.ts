@@ -159,7 +159,10 @@ export async function countCacheEntries(page: Page): Promise<number> {
 }
 
 export async function captureCanvasSignature(page: Page): Promise<number[]> {
-  const screenshot = await page.locator('canvas').screenshot({ animations: 'disabled' });
+  const screenshot = await page
+    .locator('.mode-panel:not([hidden]) canvas')
+    .first()
+    .screenshot({ animations: 'disabled' });
   return page.evaluate(async (base64) => {
     const image = new Image();
     image.src = `data:image/png;base64,${base64}`;

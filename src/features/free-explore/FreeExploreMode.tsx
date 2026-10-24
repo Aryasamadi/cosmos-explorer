@@ -37,8 +37,13 @@ const EMPTY_EARTH_DETAIL_STATUS: EarthDetailStatus = {
   atMaxLevel: false,
 };
 
-export function FreeExploreMode() {
-  const { selectedBodyId, infoOpen, lowPower, location } = useAppState();
+export function FreeExploreMode({ active }: { active: boolean }) {
+  const {
+    freeSelectedBodyId: selectedBodyId,
+    infoOpen,
+    lowPower,
+    location,
+  } = useAppState();
   const dispatch = useAppDispatch();
   const support = useWebGLSupport();
   const sceneRef = useRef<FreeExploreScene | null>(null);
@@ -54,7 +59,7 @@ export function FreeExploreMode() {
     EMPTY_EARTH_DETAIL_STATUS,
   );
 
-  const selectedBody = getBodyById(selectedBodyId);
+  const selectedBody = selectedBodyId ? getBodyById(selectedBodyId) : undefined;
   const freeBodies = getFreeExploreBodies();
   const effectiveStatus: SceneStatus = support.supported ? status : 'error';
   const effectiveError = support.supported
@@ -115,9 +120,18 @@ export function FreeExploreMode() {
 
   useEffect(() => {
     if (status !== 'ready') return;
+    if (!selectedBodyId) {
+      sceneRef.current?.selectBody(null);
+      return;
+    }
     sceneRef.current?.selectBody(selectedBodyId);
     sceneRef.current?.focusBody(selectedBodyId);
   }, [selectedBodyId, status]);
+
+  useEffect(() => {
+    if (status !== 'ready') return;
+    sceneRef.current?.setActive(active);
+  }, [active, status]);
 
   useEffect(() => {
     if (status !== 'ready') return;
@@ -194,7 +208,12 @@ export function FreeExploreMode() {
     : null;
 
   return (
-    <section className="mode-panel free-mode" aria-label="کاوش آزاد">
+    <section
+      className="mode-panel free-mode"
+      aria-label="کاوش آزاد"
+      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Home 0 1 2 3 4 + -"
+      hidden={!active}
+    >
       <div
         key={attempt}
         className="scene-host"
@@ -368,7 +387,7 @@ export function FreeExploreMode() {
         </div>
       </div>
 
-      {selectedBody ? (
+      {active && selectedBody ? (
         <CelestialInfoPanel
           body={selectedBody}
           mode="free"

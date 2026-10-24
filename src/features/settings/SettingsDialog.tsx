@@ -36,6 +36,22 @@ export function SettingsDialog({
       </section>
 
       <section className="settings-section">
+        <h3>میانبرهای ناوبری</h3>
+        <ul className="shortcut-list">
+          <li><span>چرخش دوربین</span><kbd>← ↑ ↓ →</kbd></li>
+          <li><span>جابه‌جایی صحنه</span><kbd>Shift + جهت</kbd></li>
+          <li><span>بزرگ‌نمایی / کوچک‌نمایی</span><kbd>+ / −</kbd></li>
+          <li><span>بازگشت به نمای کلی</span><kbd>Home</kbd></li>
+          <li><span>انتخاب زمین / ماه / خورشید / مریخ</span><kbd>1 / 2 / 3 / 4</kbd></li>
+        </ul>
+        <p className="settings-text settings-text--muted">
+          میانبرها فقط در «کاوش آزاد» و زمانی که focus روی ورودی یا dialog نیست فعال‌اند.
+          با ماوس بکشید و چرخ را بچرخانید؛ روی لمس، یک انگشت می‌چرخاند و دو انگشت
+          بزرگ‌نمایی/جابه‌جایی می‌کند.
+        </p>
+      </section>
+
+      <section className="settings-section">
         <h3>دربارهٔ صحنه</h3>
         <p className="settings-text">
           اندازه‌ها و فاصله‌ها در «کاوش آزاد» نمایشی‌اند؛ داده‌های عددی پنل مستقل از مقیاس

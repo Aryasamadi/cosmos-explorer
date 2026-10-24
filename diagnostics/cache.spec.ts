@@ -160,7 +160,9 @@ test.describe('tile and cache diagnostics', () => {
 
     await focusManualLocation(page, CAIRO.latitudeDeg, CAIRO.longitudeDeg);
     await expect(page.locator('.map-loading-chip')).toBeVisible({ timeout: 30_000 });
-    expect(mock.requests.length).toBeGreaterThan(0);
+    await expect
+      .poll(() => mock.requests.length, { timeout: 15_000 })
+      .toBeGreaterThan(0);
 
     await page.getByRole('button', { name: 'نمای کلی' }).click();
     await page.waitForTimeout(2600);

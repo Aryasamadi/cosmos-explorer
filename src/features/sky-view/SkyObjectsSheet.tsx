@@ -7,7 +7,7 @@ interface SkyObjectsSheetProps {
   open: boolean;
   onClose: () => void;
   snapshot: SkySnapshot | null;
-  selectedBodyId: string;
+  selectedBodyId: string | null;
   onSelect: (bodyId: string) => void;
 }
 

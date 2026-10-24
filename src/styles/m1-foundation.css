@@ -1,6 +1,10 @@
 /* M1 foundation: type scale, touch targets, contrast, responsive shell and
    one-layer glass. Scene geometry and navigation are intentionally untouched. */
 
+.mode-panel[hidden] {
+  display: none !important;
+}
+
 .sr-only {
   position: absolute !important;
   width: 1px !important;
@@ -316,6 +320,40 @@ h3 {
 .settings-version {
   color: var(--muted);
   font-size: var(--text-xs);
+}
+
+.shortcut-list {
+  display: grid;
+  gap: 8px;
+  font-size: var(--text-base);
+}
+
+.shortcut-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line);
+}
+
+.shortcut-list li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.shortcut-list kbd {
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  font-family: var(--font);
+  font-size: var(--text-xs);
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .source-list a,
