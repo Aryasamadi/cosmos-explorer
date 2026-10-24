@@ -47,13 +47,15 @@ baselineهای تصویری است. در فاز ۱، expected-failهای astrono
 
 ## وضعیت اجرای فعلی
 
-- **۱۸۱ تست Vitest** در ۳۰ فایل و **۸ تست مرورگری Playwright**، همه سبز
+- **۱۸۲ تست Vitest** در ۳۱ فایل و **۱۱ تست مرورگری Playwright**، همه سبز
   (اجرا در ۲۰۲۶-۱۰-۲۳). نسخهٔ ۰٫۴٫۰ روی GitHub Pages منتشر و بررسی شده است.
 - فاز ۱: frame علمی مشترک (Sun/Moon/Mars)، فاز صحیح ماه/مریخ، LocationService
   مشترک Earth/Sky، و ۱۲ baseline تصویری (شامل دو فاز ماه) بررسی شده‌اند. چهار تست
   ناوبری همچنان expected-fail آگاهانه هستند و جزو محدودهٔ فاز ۱ نبودند. suite
   browser diagnostics: ۴۰ تست (۳۶ pass + ۴ expected-fail)، ۰ unexpected؛ suite
   astronomy: ۱۴/۱۴ pass.
+- M1 UI: تایپوگرافی خوانا، هدف لمسی ۴۴px، focus trap/inert، چیدمان مستقل دسکتاپ و
+  ۳ تست مرورگری جدید برای اندازه/دسترس‌پذیری اضافه شد. ۱۸۲ unit و ۱۱ E2E سبزند.
 - `lint`: بدون خطا و بدون warning.
 - `typecheck`: بدون خطا با TypeScript strict.
 - `build`: موفق (شامل build با base path صفحات و `check:pages`).

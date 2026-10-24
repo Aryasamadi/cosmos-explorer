@@ -14,6 +14,10 @@ export function App() {
 
   return (
     <div className={`app app--${mode}`}>
+      <a className="skip-link" href="#main-content">
+        رفتن به محتوای اصلی
+      </a>
+      <h1 className="sr-only">کاوشگر کیهان</h1>
       <header className="app-header glass">
         <div className="brand">
           <span className="brand__mark" aria-hidden="true">
@@ -37,7 +41,7 @@ export function App() {
         </button>
       </header>
 
-      <main className="app-main">
+      <main className="app-main" id="main-content" tabIndex={-1}>
         {mode === 'free' ? <FreeExploreMode /> : <SkyMode />}
       </main>
 

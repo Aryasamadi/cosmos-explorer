@@ -259,9 +259,8 @@ export function EarthLocationSheet({
       </section>
 
       <p className="settings-text settings-text--muted">
-        دقت گزارش‌شده تضمین GPS نیست و مختصات فقط در همین مرورگر می‌ماند. برای جزئیات نقشه،
-        محدودهٔ تقریبی نما به OpenStreetMap فرستاده می‌شود؛ مختصات دقیق دستگاه مستقیماً ارسال
-        نمی‌شود.
+        دقت گزارش‌شده تضمین GPS نیست و مختصات در همین مرورگر می‌ماند. برای کاشی‌های نقشه
+        فقط محدودهٔ تقریبی نما به OpenStreetMap فرستاده می‌شود.
       </p>
       <div className="map-credit-links">
         <a href={OSM_RASTER_TILES.attributionUrl} target="_blank" rel="noreferrer noopener">

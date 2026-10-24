@@ -203,22 +203,25 @@ export function FreeExploreMode() {
       />
 
       <div className="scene-top-hud">
-        <div className="scale-badge" title={DISPLAY_SCALE_NOTICE_FA}>
-          <IconInfo size={15} />
-          <span>مقیاس نمایشی فشرده</span>
+        <div
+          className="scale-badge"
+          role="note"
+          title={DISPLAY_SCALE_NOTICE_FA}
+          aria-label={DISPLAY_SCALE_NOTICE_FA}
+        >
+          <IconInfo size={16} />
+          <span>مقیاس نمایشی</span>
         </div>
       </div>
 
-      {mapStatus.phase !== 'idle' ? (
-        <a
-          className="map-attribution-corner"
-          href={OSM_RASTER_TILES.attributionUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-        >
-          {OSM_RASTER_TILES.attributionText}
-        </a>
-      ) : null}
+      <a
+        className="map-attribution-corner"
+        href={OSM_RASTER_TILES.attributionUrl}
+        target="_blank"
+        rel="noreferrer noopener"
+      >
+        {OSM_RASTER_TILES.attributionText}
+      </a>
 
       {effectiveStatus === 'loading' ? (
         <div className="scene-loading" role="status">
@@ -283,8 +286,7 @@ export function FreeExploreMode() {
       <div className="free-bottom">
         {hintVisible ? (
           <div className="hint-bubble" role="status">
-            برای چرخش بکشید؛ با دو انگشت یا چرخ ماوس بزرگ‌نمایی کنید. برای دیدن جزئیات، یک جرم
-            را لمس کنید.
+            برای چرخش بکشید؛ برای جزئیات، یک جرم را لمس کنید.
             <button
               type="button"
               className="hint-bubble__close"
@@ -321,15 +323,6 @@ export function FreeExploreMode() {
               <span className="earth-location-pill__label">موقعیت من روی زمین</span>
             )}
           </button>
-          <a
-            className="osm-credit"
-            href={OSM_RASTER_TILES.attributionUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            title="جزئیات نقشه از OpenStreetMap"
-          >
-            {OSM_RASTER_TILES.attributionText}
-          </a>
         </div>
         {mapStatus.phase === 'loading' ? (
           <p className="earth-map-status" role="status">
@@ -373,10 +366,6 @@ export function FreeExploreMode() {
             );
           })}
         </div>
-        <p className="free-caption">
-          <IconGlobe size={13} />
-          زمین در مرکز تجربه؛ خورشید، ماه و مریخ با مقیاس فشرده نمایش داده می‌شوند.
-        </p>
       </div>
 
       {selectedBody ? (

@@ -205,6 +205,7 @@ npm run build
 - [تست و اعتبارسنجی](docs/testing.md)
 - [گزارش تشخیصی فاز ۰](docs/mission-006-diagnostics.md)
 - [گزارش فاز ۱: frame علمی و LocationService](docs/mission-007-phase1.md)
+- [گزارش M1: پایهٔ UI و دسترس‌پذیری](docs/mission-009-m1.md)
 - [انتشار و GitHub Pages](docs/deployment.md)
 - [تصمیم‌های معماری](docs/decisions/)
 - [منابع، مجوز دارایی‌ها و انتساب](docs/attribution.md)
