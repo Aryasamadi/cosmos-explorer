@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { computeReferenceFrame } from '../../astronomy/referenceFrame';
+import { getBodyById } from '../../catalog/bodies';
 import {
   appSimulationClock,
   SimulationClock,
@@ -52,6 +54,7 @@ export interface FreeExploreSceneOptions {
   container: HTMLElement;
   lowPower?: boolean;
   active?: boolean;
+  mapOverlayEnabled?: boolean;
   clock?: SimulationClock;
   onSelectBody?: (bodyId: string) => void;
   onMapStatus?: (status: MapDetailStatus) => void;
@@ -94,6 +97,19 @@ function materialPixelRatio(lowPower: boolean): number {
   return Math.min(deviceRatio, lowPower ? 1.25 : 2);
 }
 
+const LABEL_BODY_IDS = ['earth', 'moon', 'sun', 'mars'] as const;
+
+function createBodyLabel(bodyId: string): CSS2DObject {
+  const element = document.createElement('span');
+  element.className = 'free-body-label';
+  element.dataset.body = bodyId;
+  element.textContent = getBodyById(bodyId)?.nameFa ?? bodyId;
+  const label = new CSS2DObject(element);
+  label.center.set(0.5, 0.5);
+  label.visible = false;
+  return label;
+}
+
 export class FreeExploreScene {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene: THREE.Scene;
@@ -101,12 +117,16 @@ export class FreeExploreScene {
   private readonly controls: OrbitControls;
   private readonly visual: SolarSystemVisual;
   private readonly starfield: THREE.Group;
+  private readonly labelRenderer: CSS2DRenderer;
+  private readonly labelScene = new THREE.Scene();
+  private readonly bodyLabels = new Map<string, CSS2DObject>();
   private readonly earthDetail: EarthDetailLayer;
   private readonly globeTiles: GlobeTileLayer;
   private readonly locationLayer: EarthLocationLayer;
   private readonly loop: RenderLoop;
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2();
+  private readonly labelProjection = new THREE.Vector3();
   private readonly options: FreeExploreSceneOptions;
   private readonly resizeObserver: ResizeObserver | null;
   private readonly prefersReducedMotion: boolean;
@@ -159,6 +179,8 @@ export class FreeExploreScene {
     visual.earthSpinGroup.add(this.earthDetail.group);
     this.globeTiles = createGlobeTileLayer({
       renderer,
+      sunDirection: visual.earthSunDirection,
+      enabled: options.mapOverlayEnabled ?? true,
       onStatus: options.onMapStatus,
     });
     visual.earthSpinGroup.add(this.globeTiles.group);
@@ -183,6 +205,17 @@ export class FreeExploreScene {
     this.controls.minPolarAngle = 0.05;
     this.controls.maxPolarAngle = Math.PI - 0.05;
     this.controls.update();
+
+    this.labelRenderer = new CSS2DRenderer();
+    this.labelRenderer.domElement.className = 'free-label-layer';
+    this.labelRenderer.domElement.setAttribute('aria-hidden', 'true');
+    this.labelRenderer.setSize(width, height);
+    options.container.appendChild(this.labelRenderer.domElement);
+    for (const bodyId of LABEL_BODY_IDS) {
+      const label = createBodyLabel(bodyId);
+      this.labelScene.add(label);
+      this.bodyLabels.set(bodyId, label);
+    }
 
     renderer.domElement.style.cursor = 'grab';
     renderer.domElement.style.touchAction = 'none';
@@ -276,8 +309,34 @@ export class FreeExploreScene {
     ring.visible = true;
   }
 
+  private updateBodyLabels(): void {
+    for (const [bodyId, label] of this.bodyLabels) {
+      const body = this.visual.bodies.get(bodyId);
+      if (!body) {
+        label.visible = false;
+        continue;
+      }
+      label.position.copy(body.position);
+      label.position.y += body.radius * 1.55;
+      this.labelProjection.copy(label.position).project(this.camera);
+      const inFront =
+        this.labelProjection.z > -1 && this.labelProjection.z < 1;
+      const insideMargin =
+        Math.abs(this.labelProjection.x) < 0.92 &&
+        Math.abs(this.labelProjection.y) < 0.92;
+      label.visible =
+        inFront &&
+        insideMargin &&
+        this.camera.position.distanceTo(body.position) > body.radius * 1.4;
+    }
+  }
+
   setGeographicLocation(location: GeoLocation | null): void {
     this.locationLayer.setLocation(location);
+  }
+
+  setMapOverlayEnabled(enabled: boolean): void {
+    this.globeTiles.setEnabled(enabled);
   }
 
   clearGeographicLocation(): void {
@@ -413,6 +472,12 @@ export class FreeExploreScene {
     );
     document.removeEventListener('keydown', this.handleNavigateKeyDown);
     this.controls.dispose();
+    for (const label of this.bodyLabels.values()) {
+      label.removeFromParent();
+      label.element.remove();
+    }
+    this.bodyLabels.clear();
+    this.labelRenderer.domElement.remove();
     this.earthDetail.dispose();
     this.globeTiles.dispose();
     this.locationLayer.dispose();
@@ -661,6 +726,7 @@ export class FreeExploreScene {
     this.controls.update();
     this.updateEarthProximity();
     this.updateAstronomy();
+    this.visual.updateMoonLighting(this.camera);
     // Do not request tile sets for intermediate camera positions during a
     // fly-to. Detail fades still advance every frame.
     this.earthDetail.update({
@@ -685,7 +751,9 @@ export class FreeExploreScene {
     if (!this.prefersReducedMotion) {
       this.visual.update(elapsed, delta, this.lowPower);
     }
+    this.updateBodyLabels();
     this.renderer.render(this.scene, this.camera);
+    this.labelRenderer.render(this.labelScene, this.camera);
   }
 
   private resize(): void {
@@ -698,6 +766,7 @@ export class FreeExploreScene {
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(materialPixelRatio(this.lowPower));
     this.renderer.setSize(width, height, false);
+    this.labelRenderer.setSize(width, height);
   }
 
   private updateRaycaster(event: PointerEvent): void {

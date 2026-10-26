@@ -21,6 +21,7 @@ import {
 } from '../../app/format';
 import { Sheet } from '../../components/Sheet';
 import { Notice } from '../../components/Notice';
+import { Switch } from '../../components/Switch';
 import { ManualLocationForm } from '../sky-view/ManualLocationForm';
 import { IconPin, IconTarget } from '../../components/Icons';
 
@@ -32,6 +33,8 @@ interface EarthLocationSheetProps {
   onUpdateLocation: (location: GeoLocation) => void;
   onFocus: (location: GeoLocation) => void;
   onClear: () => void;
+  mapOverlayEnabled: boolean;
+  onMapOverlayChange: (enabled: boolean) => void;
 }
 
 type BusyState = 'idle' | 'requesting' | 'refining';
@@ -51,6 +54,8 @@ export function EarthLocationSheet({
   onUpdateLocation,
   onFocus,
   onClear,
+  mapOverlayEnabled,
+  onMapOverlayChange,
 }: EarthLocationSheetProps) {
   const [manualOpen, setManualOpen] = useState(false);
   const [busy, setBusy] = useState<BusyState>('idle');
@@ -256,6 +261,16 @@ export function EarthLocationSheet({
             onCancel={() => setManualOpen(false)}
           />
         ) : null}
+      </section>
+
+      <section className="settings-section">
+        <h3>لایهٔ نقشه</h3>
+        <Switch
+          checked={mapOverlayEnabled}
+          onChange={onMapOverlayChange}
+          label="نقشهٔ خیابانی OpenStreetMap"
+          description="لایهٔ OSM فقط نزدیک سطح زمین نمایش داده می‌شود و در سمت شب تیره می‌شود تا با روشنایی زمین هماهنگ بماند. با خاموش‌کردن آن، تصویر NASA و کرهٔ پایه باقی می‌مانند."
+        />
       </section>
 
       <p className="settings-text settings-text--muted">
