@@ -28,6 +28,10 @@ npm run test:diagnostics:update
 - `integration.spec.ts` نسخهٔ واحد M1+M2 را در شش viewport از ۳۲۰×۵۶۸ تا
   ۱۹۲۰×۱۰۸۰، چرخه‌های Earth→Moon→Earth و Free→Sky→Free، و نبود خطای
   کنسول/pageerror/درخواست ناموفق بررسی می‌کند. OSM در این تست mock می‌شود.
+- `p1.spec.ts` برچسب‌های اجرام، راهنمای مقیاس، خاموش/روشن‌کردن OSM و
+  attribution شرطی را می‌سنجد؛ OSM در آن mock می‌شود.
+- `visual.spec.ts` با `prefers-reduced-motion` اجرا می‌شود تا WebGL و برچسب‌های
+  متحرک باعث ناپایداری screenshot نشوند؛ assertionهای تصویری تغییر نکرده‌اند.
 - `installFixedDate(page, utc)` امکان اجرای هر سناریو در تاریخ UTC دلخواه را می‌دهد؛
   baselineهای دو فاز ماه در تاریخ‌های ۲۰۲۶-۰۶-۲۱ و ۲۰۲۶-۰۹-۲۳ ساخته شده‌اند.
 - baselineهای تصویری با Chrome headless/SwiftShader، DPR=۱ و locale=`fa-IR` تولید
@@ -45,5 +49,6 @@ npm run test:diagnostics:update
 
 گزارش‌ها: [`docs/mission-006-diagnostics.md`](../docs/mission-006-diagnostics.md)،
 [`docs/mission-007-phase1.md`](../docs/mission-007-phase1.md)،
-[`docs/mission-010-m2.md`](../docs/mission-010-m2.md) و
-[`docs/mission-011-integration.md`](../docs/mission-011-integration.md)
+[`docs/mission-010-m2.md`](../docs/mission-010-m2.md)،
+[`docs/mission-011-integration.md`](../docs/mission-011-integration.md) و
+[`docs/mission-014-p1.md`](../docs/mission-014-p1.md)
