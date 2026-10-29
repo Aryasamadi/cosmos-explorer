@@ -63,6 +63,16 @@ export interface FreeExploreSceneOptions {
   onContextRestored?: () => void;
 }
 
+interface FreeExploreLightingSnapshot {
+  earthLocalSunDirection: number[];
+  osmLocalSunDirection: number[];
+  moonSceneSunDirection: number[];
+  marsSceneSunDirection: number[];
+  moonPosition: number[];
+  marsPosition: number[];
+  cameraPosition: number[];
+}
+
 interface GeoFocusTween {
   startSeconds: number;
   durationSeconds: number;
@@ -144,6 +154,8 @@ export class FreeExploreScene {
   private lastAstronomyUpdateMs = 0;
   private disposed = false;
   private pointerDown: { x: number; y: number; time: number } | null = null;
+  private readonly lightingProbe = (): FreeExploreLightingSnapshot =>
+    this.readLightingSnapshot();
 
   private constructor(
     renderer: THREE.WebGLRenderer,
@@ -232,6 +244,7 @@ export class FreeExploreScene {
         : new ResizeObserver(() => this.resize());
     this.resizeObserver?.observe(options.container);
     this.updateAstronomy(true);
+    this.installLightingProbe();
 
     this.loop = new RenderLoop((elapsed, delta) => this.renderFrame(elapsed, delta));
     this.loop.start();
@@ -457,9 +470,46 @@ export class FreeExploreScene {
     this.resize();
   }
 
+  private readLightingSnapshot(): FreeExploreLightingSnapshot {
+    const moon = this.visual.bodies.get('moon');
+    const mars = this.visual.bodies.get('mars');
+    if (!moon || !mars) {
+      throw new Error('Lighting snapshot requested before bodies were created.');
+    }
+    return {
+      earthLocalSunDirection: this.visual.earthSunDirection.toArray(),
+      osmLocalSunDirection: this.globeTiles.sunDirection.toArray(),
+      moonSceneSunDirection: this.visual.moonSunDirection.toArray(),
+      marsSceneSunDirection: this.visual.marsSunDirection.toArray(),
+      moonPosition: moon.position.toArray(),
+      marsPosition: mars.position.toArray(),
+      cameraPosition: this.camera.position.toArray(),
+    };
+  }
+
+  private installLightingProbe(): void {
+    if (!import.meta.env.DEV || typeof window === 'undefined') return;
+    (
+      window as Window & {
+        __cosmosLighting?: () => FreeExploreLightingSnapshot;
+      }
+    ).__cosmosLighting = this.lightingProbe;
+  }
+
+  private removeLightingProbe(): void {
+    if (!import.meta.env.DEV || typeof window === 'undefined') return;
+    const scope = window as Window & {
+      __cosmosLighting?: () => FreeExploreLightingSnapshot;
+    };
+    if (scope.__cosmosLighting === this.lightingProbe) {
+      delete scope.__cosmosLighting;
+    }
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.removeLightingProbe();
     this.loop.stop();
     this.resizeObserver?.disconnect();
     this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown);
@@ -726,7 +776,6 @@ export class FreeExploreScene {
     this.controls.update();
     this.updateEarthProximity();
     this.updateAstronomy();
-    this.visual.updateMoonLighting(this.camera);
     // Do not request tile sets for intermediate camera positions during a
     // fly-to. Detail fades still advance every frame.
     this.earthDetail.update({

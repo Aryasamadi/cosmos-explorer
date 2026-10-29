@@ -13,8 +13,7 @@ import {
   EARTH_SURFACE_COLOR_GLSL,
 } from './earthSurfaceShader';
 import { createLitBodyMaterial } from './litBodyMaterial';
-import { computeMoonDisplayLight } from './moonPhase';
-import { phaseFractionFromBodyState } from '../../astronomy/referenceFrame';
+import { physicalSunDirections } from './physicalLighting';
 
 export interface BodyVisual {
   id: string;
@@ -33,8 +32,9 @@ export interface SolarSystemVisual {
   earthDayTexture: THREE.Texture;
   earthNightTexture: THREE.Texture;
   earthSunDirection: THREE.Vector3;
+  moonSunDirection: THREE.Vector3;
+  marsSunDirection: THREE.Vector3;
   applyReferenceFrame(frame: ReferenceFrame): void;
-  updateMoonLighting(camera: THREE.Camera): void;
   sunMaterial: THREE.ShaderMaterial;
   selectionRing: THREE.Sprite;
   update(elapsedSeconds: number, _deltaSeconds: number, lowPower: boolean): void;
@@ -204,9 +204,6 @@ export async function createSolarSystem(
   interactiveMeshes.push(earthMesh);
 
   const moonLit = createLitBodyMaterial(moonTexture);
-  let moonPhaseFraction = 0.5;
-  const moonViewDirection = new THREE.Vector3();
-  const moonSunDirection = new THREE.Vector3();
   const moonMesh = new THREE.Mesh(
     new THREE.SphereGeometry(0.27, 64, 64),
     moonLit.material,
@@ -354,19 +351,11 @@ export async function createSolarSystem(
 
     const sunBody = bodies.get('sun');
     sunBody?.position.copy(sunMesh.position);
-    earthMaterial.uniforms.uSunDirection!.value.set(
-      frame.sun.directionFromEarth.x,
-      frame.sun.directionFromEarth.y,
-      frame.sun.directionFromEarth.z,
-    ).normalize();
 
-    moonLit.sunDirection.copy(
-      localDirectionToScene(frame.moon.sunDirection),
-    );
-    marsLit.sunDirection.copy(
-      localDirectionToScene(frame.mars.sunDirection),
-    );
-    moonPhaseFraction = phaseFractionFromBodyState(frame.moon);
+    const sunDirections = physicalSunDirections(frame);
+    earthMaterial.uniforms.uSunDirection!.value.copy(sunDirections.earthLocal);
+    moonLit.sunDirection.copy(sunDirections.moonScene);
+    marsLit.sunDirection.copy(sunDirections.marsScene);
   };
 
   return {
@@ -379,20 +368,9 @@ export async function createSolarSystem(
     earthDayTexture: earthTexture,
     earthNightTexture: nightLightsTexture,
     earthSunDirection: earthMaterial.uniforms.uSunDirection!.value as THREE.Vector3,
+    moonSunDirection: moonLit.sunDirection,
+    marsSunDirection: marsLit.sunDirection,
     applyReferenceFrame,
-    updateMoonLighting(camera: THREE.Camera): void {
-      moonViewDirection.copy(camera.position).sub(moonMesh.position);
-      moonSunDirection.copy(sunMesh.position).sub(moonMesh.position);
-      if (moonViewDirection.lengthSq() < 1e-12 || moonSunDirection.lengthSq() < 1e-12) {
-        return;
-      }
-      computeMoonDisplayLight(
-        moonViewDirection,
-        moonSunDirection,
-        moonPhaseFraction,
-        moonLit.sunDirection,
-      );
-    },
     sunMaterial,
     selectionRing,
     update(elapsedSeconds: number, _deltaSeconds: number, lowPower: boolean): void {

@@ -64,6 +64,8 @@ export interface GlobeTileLayerOptions {
 
 export interface GlobeTileLayer {
   group: THREE.Group;
+  /** Shared Earth-local Sun vector used by every tile material. */
+  readonly sunDirection: THREE.Vector3;
   setEnabled(enabled: boolean): void;
   update(input: {
     camera: THREE.PerspectiveCamera;
@@ -509,6 +511,7 @@ export function createGlobeTileLayer(
 
   return {
     group,
+    sunDirection: options.sunDirection,
     setEnabled(next: boolean) {
       if (disposed || enabled === next) return;
       enabled = next;
