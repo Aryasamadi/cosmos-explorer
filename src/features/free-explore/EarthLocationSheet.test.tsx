@@ -53,6 +53,7 @@ function baseProps() {
     onClear: vi.fn(),
     mapOverlayEnabled: true,
     onMapOverlayChange: vi.fn(),
+    mapAttributionVisible: true,
   };
 }
 
@@ -171,6 +172,18 @@ describe('EarthLocationSheet', () => {
     expect(toggle).toBeChecked();
     await user.click(toggle);
     expect(props.onMapOverlayChange).toHaveBeenCalledWith(false);
+  });
+
+  it('hides OSM attribution when no map layer is active', () => {
+    const props = baseProps();
+    props.mapAttributionVisible = false;
+    render(<EarthLocationSheet {...props} />);
+    expect(
+      screen.queryByRole('link', { name: /OpenStreetMap contributors/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /شرایط سرویس نقشه/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows a compact sheet with the required OpenStreetMap attribution', () => {

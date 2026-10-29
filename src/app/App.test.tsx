@@ -69,7 +69,7 @@ describe('application flows', () => {
     expect(within(panel).getByText(/موقعیت در آسمان ناظر/)).toBeInTheDocument();
   });
 
-  it('keeps map attribution available when the manual location and map layer are configured', async () => {
+  it('keeps the map layer control available without attribution when no map is active', async () => {
     const user = userEvent.setup();
     renderApp();
 
@@ -93,11 +93,11 @@ describe('application flows', () => {
     await user.click(screen.getByRole('button', { name: /موقعیت شما/ }));
     const mapDialog = await screen.findByRole('dialog');
     expect(
-      within(mapDialog).getByRole('link', { name: /OpenStreetMap contributors/ }),
-    ).toBeInTheDocument();
-    expect(
       within(mapDialog).getByRole('switch', { name: /نقشهٔ خیابانی/ }),
     ).toBeChecked();
+    expect(
+      within(mapDialog).queryByRole('link', { name: /OpenStreetMap contributors/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows explicit unsupported messages for sensors and camera without crashing', async () => {

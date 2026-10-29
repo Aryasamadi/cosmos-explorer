@@ -444,6 +444,7 @@ export function FreeExploreMode({ active }: { active: boolean }) {
           onClear={handleClearLocation}
           mapOverlayEnabled={mapOverlayEnabled}
           onMapOverlayChange={setMapOverlayEnabled}
+          mapAttributionVisible={mapAttributionVisible}
         />
       ) : null}
     </section>

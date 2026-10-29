@@ -35,6 +35,7 @@ interface EarthLocationSheetProps {
   onClear: () => void;
   mapOverlayEnabled: boolean;
   onMapOverlayChange: (enabled: boolean) => void;
+  mapAttributionVisible: boolean;
 }
 
 type BusyState = 'idle' | 'requesting' | 'refining';
@@ -56,6 +57,7 @@ export function EarthLocationSheet({
   onClear,
   mapOverlayEnabled,
   onMapOverlayChange,
+  mapAttributionVisible,
 }: EarthLocationSheetProps) {
   const [manualOpen, setManualOpen] = useState(false);
   const [busy, setBusy] = useState<BusyState>('idle');
@@ -277,17 +279,19 @@ export function EarthLocationSheet({
         دقت گزارش‌شده تضمین GPS نیست و مختصات در همین مرورگر می‌ماند. برای کاشی‌های نقشه
         فقط محدودهٔ تقریبی نما به OpenStreetMap فرستاده می‌شود.
       </p>
-      <div className="map-credit-links">
-        <a href={OSM_RASTER_TILES.attributionUrl} target="_blank" rel="noreferrer noopener">
-          {OSM_RASTER_TILES.attributionText}
-        </a>
-        <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer noopener">
-          گزارش مشکل نقشه
-        </a>
-        <a href={OSM_RASTER_TILES.policyUrl} target="_blank" rel="noreferrer noopener">
-          شرایط سرویس نقشه
-        </a>
-      </div>
+      {mapAttributionVisible ? (
+        <div className="map-credit-links">
+          <a href={OSM_RASTER_TILES.attributionUrl} target="_blank" rel="noreferrer noopener">
+            {OSM_RASTER_TILES.attributionText}
+          </a>
+          <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer noopener">
+            گزارش مشکل نقشه
+          </a>
+          <a href={OSM_RASTER_TILES.policyUrl} target="_blank" rel="noreferrer noopener">
+            شرایط سرویس نقشه
+          </a>
+        </div>
+      ) : null}
     </Sheet>
   );
 }

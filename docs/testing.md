@@ -43,8 +43,8 @@ geolocation برطرف شدند. M2 نیز چهار نقص ناوبری (انت�
 focus/pose پس از Earth→Moon→Earth، و حفظ state بین Free/Sky) را رفع کرد؛ این چهار
 تست اکنون بدون `test.fail` و با همان assertionهای قبلی pass می‌شوند. P1 نیز
 هم‌ترازی فاز ماه، سایه‌گذاری شبانه/خاموش‌کردن OSM، attribution شرطی، برچسب اجرام و
-راهنمای مقیاس لمسی را پوشش می‌دهد. suite مرورگری اکنون **۴۴ تست عادی** دارد
-(۷ ناوبری، ۸ cache، ۱۵ geolocation، ۱ محیط، ۱۱ visual، ۱ integration و ۱ P1) و هیچ
+راهنمای مقیاس لمسی را پوشش می‌دهد. suite مرورگری اکنون **۴۵ تست عادی** دارد
+(۷ ناوبری، ۸ cache، ۱۵ geolocation، ۱ محیط، ۱۱ visual، ۱ integration و ۲ P1) و هیچ
 expected-fail پنهان یا حذف‌شده‌ای ندارد. این suite **در CI معمول اجرا نمی‌شود**؛
 بنابراین سبزبودن CI فعلی به معنی پوشش آن نیست. جزئیات در
 [گزارش فاز ۰](mission-006-diagnostics.md)، [گزارش فاز ۱](mission-007-phase1.md)،
@@ -53,10 +53,11 @@ expected-fail پنهان یا حذف‌شده‌ای ندارد. این suite **
 
 ## وضعیت اجرای فعلی
 
-- **۲۰۰ تست Vitest** در ۳۲ فایل و **۱۱ تست مرورگری Playwright**، همه سبز
-  (اجرا در ۲۰۲۶-۱۰-۲۵/۲۶). نسخهٔ ۰٫۴٫۰ روی GitHub Pages منتشر و بررسی شده است؛
-  M1+M2 در شاخهٔ `mission-011-integration` و P1 در شاخهٔ
-  `mission-014-p1-correctness` آماده‌اند اما merge یا deploy نشده‌اند.
+- **۲۰۱ تست Vitest** در ۳۲ فایل و **۱۱ تست مرورگری Playwright**، همه سبز
+  (اجرا در ۲۰۲۶-۱۰-۲۸). نسخهٔ ۰٫۴٫۰ روی GitHub Pages منتشر و بررسی شده است؛
+  M1+M2 در شاخهٔ `mission-011-integration` و P1 در شاخه‌های
+  `mission-014-p1-correctness` و `mission-014-p1-attribution-fix` آماده‌اند اما
+  merge یا deploy نشده‌اند.
 - فاز ۱: frame علمی مشترک (Sun/Moon/Mars)، فاز صحیح ماه/مریخ، LocationService
   مشترک Earth/Sky، و ۱۲ baseline تصویری (شامل دو فاز ماه) بررسی شده‌اند.
 - M1 UI: تایپوگرافی خوانا، هدف لمسی ۴۴px، focus trap/inert، چیدمان مستقل دسکتاپ و
@@ -73,10 +74,11 @@ expected-fail پنهان یا حذف‌شده‌ای ندارد. این suite **
   فقط با لایهٔ فعال دیده می‌شود؛ برچسب اجرام و ریل پایین اضافه شد؛ راهنمای مقیاس با
   لمس/ماوس/صفحه‌کلید باز می‌شود. baselineهای تصویری با حالت reduced-motion برای
   پایداری بازتولید شدند.
-- Browser diagnostics: **۴۴/۴۴** (شامل visual و P1)، Astronomy diagnostics:
-  **۱۴/۱۴**، diagnostics typecheck سبز. E2E نهایی ۱۱/۱۱ با timeout محیطی ۱۸۰s؛
-  دو تست heavy در سقف پیش‌فرض ۱۲۰s یک timeout محیطی داشتند و همان تست‌ها هدفمند
-  سبز شدند؛ assertionها تغییر نکردند.
+- Browser diagnostics (P1): **۴۵/۴۵** (شامل visual و P1)، Astronomy diagnostics:
+  **۱۴/۱۴**، diagnostics typecheck سبز. اجرای نهایی ۰۱۴٫۱ در ۲۰۲۶-۱۰-۲۸:
+  E2E **۱۱/۱۱** با سقف پیش‌فرض ۱۲۰s (۷٫۳m)، visual **۱۱/۱۱** (یک بار
+  screenshot-stability در `initial-320` با timeout محیطی ۲۰s مواجه شد و همان تست
+  هدفمند سبز شد)، P1 **۲/۲** (۱٫۸m). assertionها تغییر نکردند.
 - `lint`: بدون خطا و بدون warning.
 - `typecheck`: بدون خطا با TypeScript strict.
 - `build`: موفق (شامل build با base path صفحات و `check:pages`).

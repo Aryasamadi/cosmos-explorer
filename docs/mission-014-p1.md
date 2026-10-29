@@ -1,6 +1,7 @@
 # مأموریت ۰۱۴ — P1: صحت علمی و بصری
 
 > مبنا: `main` منتشرشده در `5a8be1e` · شاخه: `mission-014-p1-correctness`
+> پیگیری اصلاحی: شاخهٔ `mission-014-p1-attribution-fix` (۰۱۴٫۱)
 > این گزارش فقط P1 را ثبت می‌کند: بدون بازطراحی دوربین، 6DOF، مقیاس کیهانی یا
 > شروع P2/P3. هیچ merge یا deploy انجام نشده است.
 
@@ -71,8 +72,9 @@ P1 هفت مورد را پوشش داد: هم‌ترازی فاز نمایشی �
   «موقعیت من» لایه را خاموش/روشن می‌کند؛ در حالت خاموش، کاشی‌ها و درخواست‌ها
   متوقف و attribution اصلی مخفی می‌شوند. لایهٔ NASA و کرهٔ پایه باقی می‌مانند.
 - `mapAttributionVisible` فقط با لایهٔ فعال/در حال بارگذاری/خطا نمایش داده
-  می‌شود. attribution داخل برگهٔ تنظیمات برای آگاهی از منبع و مجوز باقی است و
-  لینک‌های مجوز/سیاست OSM حفظ شده‌اند.
+  می‌شود؛ این شرط هم attribution اصلی گوشهٔ نقشه و هم attribution و
+  لینک‌های مجوز/سیاست OSM داخل برگهٔ تنظیمات را کنترل می‌کند. در حالت خاموش یا
+  idle هیچ لینک OSM در برگه نمایش داده نمی‌شود. (اصلاح ۰۱۴٫۱)
 - در آزمون زنده: overview بدون attribution، با نقشهٔ فعال attribution ۱، با
   خاموش‌کردن ۰، و با روشن‌کردن دوباره ۱ شد. کاشی‌های mock همه ۲۰۰؛ خطای
   کنسول/شبکه نداشت.
@@ -107,15 +109,15 @@ P1 هفت مورد را پوشش داد: هم‌ترازی فاز نمایشی �
 
 | بررسی | نتیجه |
 | --- | --- |
-| Vitest unit | **۲۰۰/۲۰۰ در ۳۲ فایل** |
+| Vitest unit | **۲۰۱/۲۰۱ در ۳۲ فایل** |
 | Playwright E2E | **۱۱/۱۱** |
-| Browser diagnostics | **۴۴/۴۴**؛ ۰ expected-fail |
+| Browser diagnostics (P1) | **۴۵/۴۵**؛ ۰ expected-fail |
 | ↳ ناوبری | ۷/۷ |
 | ↳ cache | ۸/۸ |
 | ↳ geolocation + environment | ۱۶/۱۶ |
 | ↳ visual regression | ۱۱/۱۱ (۱۲ baseline) |
 | ↳ integration | ۱/۱ |
-| ↳ P1 | ۱/۱ |
+| ↳ P1 | ۲/۲ |
 | Astronomy diagnostics | ۱۴/۱۴ |
 | Diagnostics typecheck | سبز |
 | `typecheck` / `lint` | سبز / بدون خطا و warning |
@@ -123,10 +125,16 @@ P1 هفت مورد را پوشش داد: هم‌ترازی فاز نمایشی �
 
 - visual regression با `prefers-reduced-motion` اجرا شد تا انیمیشن WebGL/دوربین
   باعث ناپایداری screenshot نشود؛ assertionها و آستانه‌ها تغییر نکردند.
-- تست E2E `bundled satellite detail...` و `daylit land...` در اجرای کامل با سقف
-  پیش‌فرض ۱۲۰ ثانیه در محیط SwiftShader یک timeout محیطی داشتند؛ هر دو در اجرای
-  هدفمند و اجرای کامل نهایی با timeout محیطی ۱۸۰ ثانیه (بدون تغییر فایل تست یا
-  assertion) سبز شدند. هیچ assertion یا timeoutی برای سبز شدن تغییر نکرد.
+- اجرای نهایی ۰۱۴٫۱ (۲۰۲۶-۱۰-۲۸) روی شاخهٔ `mission-014-p1-attribution-fix`:
+  Vitest **۲۰۱/۲۰۱**، E2E **۱۱/۱۱** با سقف پیش‌فرض ۱۲۰s (۷٫۳m)، visual
+  **۱۱/۱۱** (یک screenshot-stability timeout محیطی در `initial-320` و پاس
+  هدفمند همان تست بدون تغییر کد)، P1 **۲/۲** (۱٫۸m)، diagnostics typecheck و
+  Astronomy **۱۴/۱۴** سبز.
+- در اجرای P1، تست E2E `bundled satellite detail...` و `daylit land...` در اجرای
+  کامل با سقف پیش‌فرض ۱۲۰ ثانیه در محیط SwiftShader یک timeout محیطی داشتند؛ هر
+  دو در اجرای هدفمند و اجرای کامل نهایی با timeout محیطی ۱۸۰ ثانیه (بدون تغییر
+  فایل تست یا assertion) سبز شدند. هیچ assertion یا timeoutی برای سبز شدن تغییر
+  نکرد. در اجرای ۰۱۴٫۱ هر ۱۱ تست با همان سقف پیش‌فرض ۱۲۰ ثانیه سبز شدند.
 - شش viewport در Free و Sky با integration بررسی شد؛ overflow صفر و فقط یک mode
   panel فعال بود. M1 focus trap/inert و M2 state/pose بدون رگرسیون ماندند.
 
@@ -195,5 +203,7 @@ P1 هفت مورد را پوشش داد: هم‌ترازی فاز نمایشی �
 - مبنا: `main` / `origin/main` در `5a8be1e`
 - commit پیاده‌سازی/تست: `456fbbf`
 - commit مستندات/گزارش: همین commit
-- push فقط روی همین شاخه
+- پیگیری ۰۱۴٫۱: شاخهٔ `mission-014-p1-attribution-fix` از `075c159`؛ فقط
+  conditional کردن attribution برگه و تست on/off/error
+- push فقط روی همین شاخه‌ها
 - `main` بدون تغییر
