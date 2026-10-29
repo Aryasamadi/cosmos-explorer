@@ -106,11 +106,13 @@ src/
   - context lost/restore و pause هنگام hidden.
 - `free/earthSurfaceShader.ts`: مدل رنگ مشترک روز/شب/چراغ شهر برای کرهٔ پایه و
   کاشی‌های تصویر؛ آستانه‌ها با `subsolarPoint.ts` هم‌راستا هستند.
-- `free/solarSystem.ts`: ساخت زمین/ماه/خورشید/مریخ، جوّ نمایشی، نورپردازی و ستاره‌های
-  پس‌زمینه. زمین یک `ShaderMaterial` مات با روز/شب UTC و چراغ‌های Black Marble است؛
-  بافت پایهٔ WebP و textureهای روز/شب برای لایهٔ جزئیات نیز در همین‌جا مالکیت می‌شوند.
-  ماه و مریخ متریال قبلی خود را دارند. مقیاس نمایشی فقط در همین لایه تعریف می‌شود.
-  بافت و هر شیء جغرافیایی در گروه چرخش مشترک زمین قرار دارند.
+- `free/solarSystem.ts`: ساخت زمین/ماه/خورشید/مریخ، جوّ نمایشی، نورپردازی فیزیکی
+  و ستاره‌های پس‌زمینه. زمین یک `ShaderMaterial` مات با روز/شب UTC و چراغ‌های
+  Black Marble است؛ بافت پایهٔ WebP و textureهای روز/شب برای لایهٔ جزئیات نیز در
+  همین‌جا مالکیت می‌شوند. ماه و مریخ متریال خود را دارند. مقیاس نمایشی فقط در همین
+  لایه تعریف می‌شود. بافت و هر شیء جغرافیایی در گروه چرخش مشترک زمین قرار دارند.
+- `free/physicalLighting.ts`: تبدیل جهت‌های `body→Sun` از frame علمی به frame
+  شیدرها (محلی زمین برای Earth/OSM، world برای ماه/مریخ) بدون هیچ ورودی دوربین.
 - `free/earthDetailGeometry.ts`: کرهٔ جزئی برای هر کاشی equirectangular با UV محلی و
   ریزبندی کافی برای قرار گرفتن بالای کرهٔ پایه.
 - `free/earthDetailLayer.ts`: استریم کاشی‌های تصویر NASA، LOD فضای صفحه، fade بدون
@@ -192,16 +194,18 @@ selectEarthDetailTiles() / selectGlobeTiles() ← viewport/FOV/DPR
 ## جریان روشنایی UTC زمین
 
 ```text
-Date.now() (UTC) → computeSubsolarPoint()
+Date.now() (UTC) → computeReferenceFrame() → frame.sun.directionFromEarth
                          │
                          ▼
-       geodeticToUnitVector(lat, lon) → uSunDirection (frame محلی)
+       physicalSunDirections() → earthLocal (frame محلی Earth/OSM)
                          │
                          ▼
    shader زمین: sunDot → dayFactor / cityMask → dayLit + nightBase + Black Marble
 ```
 
 - محاسبه از timezone و ساعت محلی مستقل است و هر ۳۰ ثانیه یک‌بار به‌روز می‌شود.
+- نور ماه و مریخ نیز در همان به‌روزرسانی، از `moon.sunDirection`/`mars.sunDirection`
+  همان frame گرفته می‌شود؛ دوربین هیچ نقشی در جهت نور ندارد.
 - ماسک چراغ شهر فقط در سمت شب غیرصفر است. خروجی shader همیشه `alpha=1` است.
 - ماه، مریخ و خورشید از این مسیر روشنایی تغییر نمی‌کنند.
 

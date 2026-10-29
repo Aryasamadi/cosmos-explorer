@@ -30,6 +30,10 @@ npm run test:diagnostics:update
   کنسول/pageerror/درخواست ناموفق بررسی می‌کند. OSM در این تست mock می‌شود.
 - `p1.spec.ts` برچسب‌های اجرام، راهنمای مقیاس، خاموش/روشن‌کردن OSM و
   attribution شرطی را می‌سنجد؛ OSM در آن mock می‌شود.
+- `lighting.spec.ts` با probe فقط-توسعه (`window.__cosmosLighting`) جهت‌های
+  خورشید زمین/ماه/مریخ و OSM را پیش و پس از چرخش دوربین مقایسه می‌کند و فاز ماه و
+  مریخ را از دید ناظر زمینی با `Illumination` در دو تاریخ می‌سنجد. این probe در
+  build تولیدی حذف می‌شود.
 - `visual.spec.ts` با `prefers-reduced-motion` اجرا می‌شود تا WebGL و برچسب‌های
   متحرک باعث ناپایداری screenshot نشوند؛ assertionهای تصویری تغییر نکرده‌اند.
 - `installFixedDate(page, utc)` امکان اجرای هر سناریو در تاریخ UTC دلخواه را می‌دهد؛
@@ -50,5 +54,6 @@ npm run test:diagnostics:update
 گزارش‌ها: [`docs/mission-006-diagnostics.md`](../docs/mission-006-diagnostics.md)،
 [`docs/mission-007-phase1.md`](../docs/mission-007-phase1.md)،
 [`docs/mission-010-m2.md`](../docs/mission-010-m2.md)،
-[`docs/mission-011-integration.md`](../docs/mission-011-integration.md) و
-[`docs/mission-014-p1.md`](../docs/mission-014-p1.md)
+[`docs/mission-011-integration.md`](../docs/mission-011-integration.md)،
+[`docs/mission-014-p1.md`](../docs/mission-014-p1.md) و
+[`docs/mission-015-physical-sunlight.md`](../docs/mission-015-physical-sunlight.md).

@@ -42,22 +42,23 @@ baselineهای تصویری و کنترل‌های P1 است. در فاز ۱، e
 geolocation برطرف شدند. M2 نیز چهار نقص ناوبری (انتخاب اولیهٔ Earth، بازگشت
 focus/pose پس از Earth→Moon→Earth، و حفظ state بین Free/Sky) را رفع کرد؛ این چهار
 تست اکنون بدون `test.fail` و با همان assertionهای قبلی pass می‌شوند. P1 نیز
-هم‌ترازی فاز ماه، سایه‌گذاری شبانه/خاموش‌کردن OSM، attribution شرطی، برچسب اجرام و
-راهنمای مقیاس لمسی را پوشش می‌دهد. suite مرورگری اکنون **۴۵ تست عادی** دارد
-(۷ ناوبری، ۸ cache، ۱۵ geolocation، ۱ محیط، ۱۱ visual، ۱ integration و ۲ P1) و هیچ
-expected-fail پنهان یا حذف‌شده‌ای ندارد. این suite **در CI معمول اجرا نمی‌شود**؛
-بنابراین سبزبودن CI فعلی به معنی پوشش آن نیست. جزئیات در
-[گزارش فاز ۰](mission-006-diagnostics.md)، [گزارش فاز ۱](mission-007-phase1.md)،
-[گزارش M2](mission-010-m2.md)، [گزارش یکپارچگی M1+M2](mission-011-integration.md) و
-[گزارش P1](mission-014-p1.md) آمده است.
+سایه‌گذاری شبانه/خاموش‌کردن OSM، attribution شرطی، برچسب اجرام و راهنمای مقیاس
+لمسی را پوشش می‌دهد؛ Mission 015 سه تست نور فیزیکی مستقل از دوربین، تطابق frame در
+دو تاریخ و هم‌ترازی OSM با جهت خورشید زمین را اضافه کرد. suite مرورگری اکنون
+**۴۸ تست عادی** دارد (۷ ناوبری، ۸ cache، ۱۵ geolocation، ۱ محیط، ۱۱ visual،
+۱ integration، ۲ P1 و ۳ lighting) و هیچ expected-fail پنهان یا حذف‌شده‌ای ندارد.
+این suite **در CI معمول اجرا نمی‌شود**؛ بنابراین سبزبودن CI فعلی به معنی پوشش آن
+نیست. جزئیات در [گزارش فاز ۰](mission-006-diagnostics.md)،
+[گزارش فاز ۱](mission-007-phase1.md)، [گزارش M2](mission-010-m2.md)،
+[گزارش یکپارچگی M1+M2](mission-011-integration.md)، [گزارش P1](mission-014-p1.md)
+و [گزارش Mission 015](mission-015-physical-sunlight.md) آمده است.
 
 ## وضعیت اجرای فعلی
 
-- **۲۰۱ تست Vitest** در ۳۲ فایل و **۱۱ تست مرورگری Playwright**، همه سبز
-  (اجرا در ۲۰۲۶-۱۰-۲۸). نسخهٔ ۰٫۴٫۰ روی GitHub Pages منتشر و بررسی شده است؛
-  M1+M2 در شاخهٔ `mission-011-integration` و P1 در شاخه‌های
-  `mission-014-p1-correctness` و `mission-014-p1-attribution-fix` آماده‌اند اما
-  merge یا deploy نشده‌اند.
+- **۲۰۲ تست Vitest** در ۳۲ فایل و **۱۱ تست مرورگری Playwright**، همه سبز
+  (اجرا در ۲۰۲۶-۱۰-۳۰). M1+M2 و P1 (به‌همراه اصلاح ۰۱۴٫۱) در `main` ادغام و روی
+  GitHub Pages منتشر شده‌اند؛ Mission 015 در شاخهٔ `mission-015-physical-sunlight`
+  توسعه و اعتبارسنجی شد و نتیجهٔ انتشار آن در گزارش نهایی مأموریت ثبت می‌شود.
 - فاز ۱: frame علمی مشترک (Sun/Moon/Mars)، فاز صحیح ماه/مریخ، LocationService
   مشترک Earth/Sky، و ۱۲ baseline تصویری (شامل دو فاز ماه) بررسی شده‌اند.
 - M1 UI: تایپوگرافی خوانا، هدف لمسی ۴۴px، focus trap/inert، چیدمان مستقل دسکتاپ و
@@ -69,23 +70,35 @@ expected-fail پنهان یا حذف‌شده‌ای ندارد. این suite **
 - M1+M2 integration: شش viewport از ۳۲۰×۵۶۸ تا ۱۹۲۰×۱۰۸۰، چرخهٔ
   Earth→Moon→Earth، Free→Sky→Free و نبود خطای کنسول/شبکه در
   `diagnostics/integration.spec.ts` بررسی شد.
-- P1: فاز نمایشی ماه با فاز ژئومرکزی هم‌تراز شد (خطای frame/مرجع در شش رقم اعشار
-  صفر)؛ OSM در شب تیره می‌شود و از برگهٔ مکان قابل خاموش‌کردن است؛ attribution اصلی
+- P1: OSM در شب تیره می‌شود و از برگهٔ مکان قابل خاموش‌کردن است؛ attribution اصلی
   فقط با لایهٔ فعال دیده می‌شود؛ برچسب اجرام و ریل پایین اضافه شد؛ راهنمای مقیاس با
   لمس/ماوس/صفحه‌کلید باز می‌شود. baselineهای تصویری با حالت reduced-motion برای
   پایداری بازتولید شدند.
-- Browser diagnostics (P1): **۴۵/۴۵** (شامل visual و P1)، Astronomy diagnostics:
-  **۱۴/۱۴**، diagnostics typecheck سبز. اجرای نهایی ۰۱۴٫۱ در ۲۰۲۶-۱۰-۲۸:
-  E2E **۱۱/۱۱** با سقف پیش‌فرض ۱۲۰s (۷٫۳m)، visual **۱۱/۱۱** (یک بار
-  screenshot-stability در `initial-320` با timeout محیطی ۲۰s مواجه شد و همان تست
-  هدفمند سبز شد)، P1 **۲/۲** (۱٫۸m). assertionها تغییر نکردند.
+- Mission 015: نور ماه از `Moon→Sun` واقعی frame علمی می‌آید و هیچ وابستگی به
+  دوربین ندارد؛ زمین/OSM از جهت محلی `Earth→Sun` و مریخ از `Mars→Sun` استفاده
+  می‌کنند. تست‌های قدیمی فاز نمایشی حذف و با ۱۲ تست هندسی و ۳ تست مرورگری snapshot
+  نور جایگزین شدند. baselineهای visual بدون تغییر pass شدند.
+- Browser diagnostics: **۴۸/۴۸** (شامل visual، P1 و lighting)، Astronomy
+  diagnostics: **۱۴/۱۴**، diagnostics typecheck سبز (اجرا در ۲۰۲۶-۱۰-۳۰، ۳۰٫۲m).
+  در ۰۱۴٫۱ یک بار screenshot-stability در `initial-320` timeout شد و همان تست
+  هدفمند سبز شد. در Mission 015، lighting **۳/۳**، visual **۱۱/۱۱** و P1 **۲/۲**
+  سبز شدند. assertionها تغییر نکردند.
+- E2E Mission 015: اجرای کامل با سقف پیش‌فرض ۱۲۰s به‌دلیل timeout محیطی تست heavy
+  «bundled satellite detail» ۱۰/۱۱ شد؛ همان تست هدفمند ۱/۱ در ۱٫۰m سبز شد. اجرای
+  کامل نهایی با سقف محیطی ۱۸۰s **۱۱/۱۱** در ۶٫۷m سبز شد؛ فایل تست/assertion
+  تغییر نکرد.
+- Build نهایی Mission 015: Vitest **۲۰۲/۲۰۲**؛ `build` و Pages build با
+  `VITE_BASE_PATH=/cosmos-explorer/` موفق؛ `check:pages` پنج reference را تأیید کرد.
+  روی preview مسیر Pages: HTTP 200، assetهای `index-BTNVCYsU.js`/`index-ZYbKu1Nu.css`،
+  canvas ۳۹۰×۸۴۴، بدون console/pageerror، failed request یا پاسخ ≥۴۰۰ (OSM عمداً
+  مسدود شد). probe توسعهٔ `__cosmosLighting` در bundle تولیدی وجود ندارد.
 - `lint`: بدون خطا و بدون warning.
 - `typecheck`: بدون خطا با TypeScript strict.
 - `build`: موفق (شامل build با base path صفحات و `check:pages`).
-- بررسی build با `VITE_BASE_PATH=/cosmos-explorer/` روی preview محلی: نسخهٔ ۰٫۴٫۰ در
-  تنظیمات دیده شد، هیچ درخواست تصویر در نمای کلی ثبت نشد، و در focus دقیقاً دو کاشی
-  از مسیر `/cosmos-explorer/earth-detail/v1/5/...` با موفقیت بارگذاری شدند؛ خطای
-  صفحه/کنسول و سرریز افقی صفر بود. این بررسی، انتشار Pages نیست.
+- بررسی build نسخهٔ ۰٫۴٫۰ (P1) با `VITE_BASE_PATH=/cosmos-explorer/` روی preview
+  محلی: نسخهٔ ۰٫۴٫۰ در تنظیمات دیده شد، هیچ درخواست تصویر در نمای کلی ثبت نشد، و
+  در focus دقیقاً دو کاشی از مسیر `/cosmos-explorer/earth-detail/v1/5/...` با موفقیت
+  بارگذاری شدند؛ خطای صفحه/کنسول و سرریز افقی صفر بود. این بررسی، انتشار Pages نیست.
 - انتشار GitHub Pages نسخهٔ ۰٫۲٫۰ در ۲۰۲۶-۱۰-۲۲ و نسخهٔ ۰٫۳٫۰ در ۲۰۲۶-۱۰-۲۳
   تأیید شدند: HTTP 200، بدون خطای کنسول/شبکه در Chrome واقعی، viewport ۳۹۰×۸۴۴،
   بدون سرریز افقی. برای ۰٫۳٫۰، نسخهٔ نمایش‌داده‌شده، geolocation شبیه‌سازی‌شده با
