@@ -51,6 +51,9 @@ function baseProps() {
     onUpdateLocation: vi.fn(),
     onFocus: vi.fn(),
     onClear: vi.fn(),
+    mapOverlayEnabled: true,
+    onMapOverlayChange: vi.fn(),
+    mapAttributionVisible: true,
   };
 }
 
@@ -152,7 +155,6 @@ describe('EarthLocationSheet', () => {
       timestampMs: 1_760_000_000_000,
     };
     render(<EarthLocationSheet {...props} />);
-
     expect(screen.getByText(/پایین است/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'بهبود دقت' }));
 
@@ -161,6 +163,27 @@ describe('EarthLocationSheet', () => {
     expect(improved.accuracyM).toBe(12);
     expect(await screen.findByText('دقت بهبود یافت.')).toBeInTheDocument();
     expect(props.onUseLocation).not.toHaveBeenCalled();
+  });
+
+  it('lets the user disable the OSM overlay independently of the location', async () => {
+    const user = userEvent.setup();
+    const props = renderSheet();
+    const toggle = screen.getByRole('switch', { name: /نقشهٔ خیابانی/ });
+    expect(toggle).toBeChecked();
+    await user.click(toggle);
+    expect(props.onMapOverlayChange).toHaveBeenCalledWith(false);
+  });
+
+  it('hides OSM attribution when no map layer is active', () => {
+    const props = baseProps();
+    props.mapAttributionVisible = false;
+    render(<EarthLocationSheet {...props} />);
+    expect(
+      screen.queryByRole('link', { name: /OpenStreetMap contributors/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /شرایط سرویس نقشه/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows a compact sheet with the required OpenStreetMap attribution', () => {

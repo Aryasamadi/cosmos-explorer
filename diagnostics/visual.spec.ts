@@ -15,6 +15,7 @@ async function prepare(
   fixedUtc?: string,
 ): Promise<void> {
   await installFixedDate(page, fixedUtc);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await blockOsm(page);
   await openApp(page);
   await dismissHint(page);
@@ -52,7 +53,7 @@ test.describe('initial view 390 mobile', () => {
     await prepare(page);
     await focusManualLocation(page, 30.0444, 31.2357);
     await waitForEarthImageryReady(page);
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(1800);
     await expect(page).toHaveScreenshot('earth-day-390.png');
   });
 
@@ -60,7 +61,7 @@ test.describe('initial view 390 mobile', () => {
     await prepare(page);
     await focusManualLocation(page, 21.3069, -157.8583);
     await waitForEarthImageryReady(page);
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(1800);
     await expect(page).toHaveScreenshot('earth-night-390.png');
   });
 
@@ -101,6 +102,7 @@ test.describe('initial view 390 mobile', () => {
 
   test('tile-loading-and-error-390', async ({ page }) => {
     await installFixedDate(page);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     const mock = await installMockOsm(page, { hold: true, releaseWith: 'abort' });
     await openApp(page);
     await dismissHint(page);

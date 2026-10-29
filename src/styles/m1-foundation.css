@@ -128,11 +128,103 @@ h3 {
 
 /* Free/HUD controls */
 .scale-badge {
-  min-height: 36px;
+  min-height: var(--target-min);
   padding: 7px 11px;
   color: var(--text-soft);
   background: rgba(7, 14, 27, 0.9);
+  font-family: var(--font);
   font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.scale-badge[aria-expanded='true'] {
+  border-color: var(--line-strong);
+}
+
+.scale-help {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 8px);
+  inset-inline-start: 0;
+  width: min(310px, calc(100vw - 24px));
+  padding: 12px 12px 10px;
+  border-radius: 14px;
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-md);
+  pointer-events: auto;
+}
+
+.scale-help p {
+  padding-inline-end: 30px;
+  color: var(--text-soft);
+  font-size: var(--text-sm);
+  line-height: 1.75;
+}
+
+.scale-help__close {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  display: grid;
+  place-items: center;
+  width: var(--target-min);
+  height: var(--target-min);
+  border: 0;
+  border-radius: 10px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.scale-help__close:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.free-label-layer {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.free-body-label {
+  position: absolute;
+  right: auto;
+  left: 0;
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-soft);
+  background: rgba(4, 10, 20, 0.72);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  font-family: var(--font);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.free-body-label[data-body='sun'] {
+  color: var(--gold-strong);
+  border-color: rgba(241, 194, 125, 0.34);
+}
+
+.free-body-label[data-body='moon'] {
+  color: #e6e9f2;
+}
+
+.free-body-label[data-body='mars'] {
+  color: #f0b09a;
+}
+
+.free-body-label[data-body='earth'] {
+  color: var(--cyan);
+  border-color: rgba(127, 200, 255, 0.3);
 }
 
 .free-top-actions {
@@ -514,6 +606,9 @@ h3 {
 .sky-label,
 .sky-label--body,
 .sky-cardinal-label {
+  position: absolute;
+  right: auto;
+  left: 0;
   font-size: var(--text-xs);
 }
 
@@ -680,27 +775,21 @@ h3 {
   }
 
   .free-mode .body-pills {
-    position: fixed;
-    z-index: 10;
-    top: 50%;
-    inset-inline-start: auto;
-    inset-inline-end: max(20px, calc((100vw - 1440px) / 2 + 20px));
-    transform: translateY(-50%);
-    flex-direction: column;
-    width: max-content;
-    padding: 8px;
-    overflow: visible;
-    border: 1px solid var(--line);
-    border-radius: 20px;
-    background: rgba(7, 14, 27, 0.9);
-    box-shadow: var(--shadow-md);
+    flex-direction: row;
+    width: 100%;
+    padding: 4px 2px;
+    overflow-x: auto;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
     pointer-events: auto;
   }
 
   .free-mode .body-pill {
-    width: 100%;
-    min-width: 132px;
-    justify-content: flex-start;
+    width: auto;
+    min-width: 0;
+    justify-content: center;
   }
 
   .free-mode .earth-location-row {

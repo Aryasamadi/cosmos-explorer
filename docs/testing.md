@@ -37,23 +37,27 @@ npm run test:diagnostics:astronomy
 npm run test:diagnostics:browser
 ```
 
-این suite شامل تست‌های ناوبری، نور/نجوم، cache، geolocation شبیه‌سازی‌شده و
-baselineهای تصویری است. در فاز ۱، expected-failهای astronomy و geolocation برطرف
-شدند. M2 نیز چهار نقص ناوبری (انتخاب اولیهٔ Earth، بازگشت focus/pose پس از
-Earth→Moon→Earth، و حفظ state بین Free/Sky) را رفع کرد؛ این چهار تست اکنون بدون
-`test.fail` و با همان assertionهای قبلی pass می‌شوند. suite مرورگری اکنون
-**۴۳ تست عادی** دارد (۷ ناوبری، ۸ cache، ۱۵ geolocation، ۱ محیط، ۱۱ visual و
-۱ integration) و هیچ expected-fail پنهان یا حذف‌شده‌ای ندارد. این suite **در CI
-معمول اجرا نمی‌شود**؛ بنابراین سبزبودن CI فعلی به معنی پوشش آن نیست. جزئیات در
+این suite شامل تست‌های ناوبری، نور/نجوم، cache، geolocation شبیه‌سازی‌شده،
+baselineهای تصویری و کنترل‌های P1 است. در فاز ۱، expected-failهای astronomy و
+geolocation برطرف شدند. M2 نیز چهار نقص ناوبری (انتخاب اولیهٔ Earth، بازگشت
+focus/pose پس از Earth→Moon→Earth، و حفظ state بین Free/Sky) را رفع کرد؛ این چهار
+تست اکنون بدون `test.fail` و با همان assertionهای قبلی pass می‌شوند. P1 نیز
+هم‌ترازی فاز ماه، سایه‌گذاری شبانه/خاموش‌کردن OSM، attribution شرطی، برچسب اجرام و
+راهنمای مقیاس لمسی را پوشش می‌دهد. suite مرورگری اکنون **۴۵ تست عادی** دارد
+(۷ ناوبری، ۸ cache، ۱۵ geolocation، ۱ محیط، ۱۱ visual، ۱ integration و ۲ P1) و هیچ
+expected-fail پنهان یا حذف‌شده‌ای ندارد. این suite **در CI معمول اجرا نمی‌شود**؛
+بنابراین سبزبودن CI فعلی به معنی پوشش آن نیست. جزئیات در
 [گزارش فاز ۰](mission-006-diagnostics.md)، [گزارش فاز ۱](mission-007-phase1.md)،
-[گزارش M2](mission-010-m2.md) و [گزارش یکپارچگی M1+M2](mission-011-integration.md)
-آمده است.
+[گزارش M2](mission-010-m2.md)، [گزارش یکپارچگی M1+M2](mission-011-integration.md) و
+[گزارش P1](mission-014-p1.md) آمده است.
 
 ## وضعیت اجرای فعلی
 
-- **۱۸۳ تست Vitest** در ۳۱ فایل و **۱۱ تست مرورگری Playwright**، همه سبز
-  (اجرا در ۲۰۲۶-۱۰-۲۵). نسخهٔ ۰٫۴٫۰ روی GitHub Pages منتشر و بررسی شده است؛
-  M1+M2 در شاخهٔ `mission-011-integration` آماده‌اند اما merge یا deploy نشده‌اند.
+- **۲۰۱ تست Vitest** در ۳۲ فایل و **۱۱ تست مرورگری Playwright**، همه سبز
+  (اجرا در ۲۰۲۶-۱۰-۲۸). نسخهٔ ۰٫۴٫۰ روی GitHub Pages منتشر و بررسی شده است؛
+  M1+M2 در شاخهٔ `mission-011-integration` و P1 در شاخه‌های
+  `mission-014-p1-correctness` و `mission-014-p1-attribution-fix` آماده‌اند اما
+  merge یا deploy نشده‌اند.
 - فاز ۱: frame علمی مشترک (Sun/Moon/Mars)، فاز صحیح ماه/مریخ، LocationService
   مشترک Earth/Sky، و ۱۲ baseline تصویری (شامل دو فاز ماه) بررسی شده‌اند.
 - M1 UI: تایپوگرافی خوانا، هدف لمسی ۴۴px، focus trap/inert، چیدمان مستقل دسکتاپ و
@@ -64,10 +68,17 @@ Earth→Moon→Earth، و حفظ state بین Free/Sky) را رفع کرد؛ ا�
   به تست عادی تبدیل شدند.
 - M1+M2 integration: شش viewport از ۳۲۰×۵۶۸ تا ۱۹۲۰×۱۰۸۰، چرخهٔ
   Earth→Moon→Earth، Free→Sky→Free و نبود خطای کنسول/شبکه در
-  `diagnostics/integration.spec.ts` بررسی شد. **۴۳/۴۳ browser diagnostics**
-  (شامل ۷ ناوبری، ۸ cache، ۱۵ geolocation، ۱ محیط، ۱۱ visual و ۱ integration)،
-  **۱۴/۱۴ astronomy diagnostics** و typecheck تشخیصی سبزند. baselineها پس از حذف
-  انتخاب اولیهٔ Earth بازتولید و بازبینی شدند.
+  `diagnostics/integration.spec.ts` بررسی شد.
+- P1: فاز نمایشی ماه با فاز ژئومرکزی هم‌تراز شد (خطای frame/مرجع در شش رقم اعشار
+  صفر)؛ OSM در شب تیره می‌شود و از برگهٔ مکان قابل خاموش‌کردن است؛ attribution اصلی
+  فقط با لایهٔ فعال دیده می‌شود؛ برچسب اجرام و ریل پایین اضافه شد؛ راهنمای مقیاس با
+  لمس/ماوس/صفحه‌کلید باز می‌شود. baselineهای تصویری با حالت reduced-motion برای
+  پایداری بازتولید شدند.
+- Browser diagnostics (P1): **۴۵/۴۵** (شامل visual و P1)، Astronomy diagnostics:
+  **۱۴/۱۴**، diagnostics typecheck سبز. اجرای نهایی ۰۱۴٫۱ در ۲۰۲۶-۱۰-۲۸:
+  E2E **۱۱/۱۱** با سقف پیش‌فرض ۱۲۰s (۷٫۳m)، visual **۱۱/۱۱** (یک بار
+  screenshot-stability در `initial-320` با timeout محیطی ۲۰s مواجه شد و همان تست
+  هدفمند سبز شد)، P1 **۲/۲** (۱٫۸m). assertionها تغییر نکردند.
 - `lint`: بدون خطا و بدون warning.
 - `typecheck`: بدون خطا با TypeScript strict.
 - `build`: موفق (شامل build با base path صفحات و `check:pages`).

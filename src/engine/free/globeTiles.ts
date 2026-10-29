@@ -19,6 +19,31 @@ const TILE_CACHE_NAME = 'cosmos-explorer-osm-tiles-v1';
 const MAX_PERSISTED_TILES = 120;
 const LOD_SETTLE_MS = 260;
 
+const TILE_VERTEX_SHADER = `
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  void main() {
+    vUv = uv;
+    vNormal = normalize(position);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const TILE_FRAGMENT_SHADER = `
+  uniform sampler2D map;
+  uniform vec3 uSunDirection;
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  void main() {
+    vec3 base = texture2D(map, vUv).rgb;
+    float sunDot = dot(normalize(vNormal), normalize(uSunDirection));
+    float dayFactor = smoothstep(-0.10, 0.14, sunDot);
+    vec3 night = base * vec3(0.24, 0.30, 0.44);
+    gl_FragColor = vec4(mix(night, base, dayFactor), 1.0);
+    #include <colorspace_fragment>
+  }
+`;
+
 export type MapDetailPhase = 'idle' | 'loading' | 'ready' | 'error';
 
 export interface MapDetailStatus {
@@ -31,11 +56,15 @@ export interface MapDetailStatus {
 export interface GlobeTileLayerOptions {
   renderer: THREE.WebGLRenderer;
   provider?: RasterTileProvider;
+  /** Shared local-frame Sun direction used to shade the map at night. */
+  sunDirection: THREE.Vector3;
+  enabled?: boolean;
   onStatus?: (status: MapDetailStatus) => void;
 }
 
 export interface GlobeTileLayer {
   group: THREE.Group;
+  setEnabled(enabled: boolean): void;
   update(input: {
     camera: THREE.PerspectiveCamera;
     earthGroup: THREE.Object3D;
@@ -49,7 +78,7 @@ export interface GlobeTileLayer {
 
 interface TileSlot {
   mesh: THREE.Mesh;
-  material: THREE.MeshBasicMaterial;
+  material: THREE.ShaderMaterial;
 }
 
 interface CachedTexture {
@@ -206,6 +235,8 @@ export function createGlobeTileLayer(
   const provider = options.provider ?? OSM_RASTER_TILES;
   const group = new THREE.Group();
   group.name = 'earth-osm-detail';
+  let enabled = options.enabled ?? true;
+  group.visible = enabled;
 
   const textureLoader = new THREE.TextureLoader();
   const meshes = new Map<string, TileSlot>();
@@ -279,12 +310,16 @@ export function createGlobeTileLayer(
   const addMesh = (tile: TileCoordinate, texture: THREE.Texture): void => {
     const key = tileKey(tile);
     if (meshes.has(key) || !desiredKeys.has(key)) return;
-    // Tiles are opaque. They must never use transparency as a loading state:
-    // the base Earth must remain solid if a tile is missing or delayed.
-    const material = new THREE.MeshBasicMaterial({
-      map: texture,
+    // The street map is shaded by the same local Sun direction as the Earth
+    // shader so a bright day-style map never sits on the night hemisphere.
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        map: { value: texture },
+        uSunDirection: { value: options.sunDirection },
+      },
+      vertexShader: TILE_VERTEX_SHADER,
+      fragmentShader: TILE_FRAGMENT_SHADER,
       transparent: false,
-      opacity: 1,
       depthWrite: true,
       depthTest: true,
       side: THREE.FrontSide,
@@ -474,8 +509,14 @@ export function createGlobeTileLayer(
 
   return {
     group,
+    setEnabled(next: boolean) {
+      if (disposed || enabled === next) return;
+      enabled = next;
+      group.visible = next;
+      if (!next) clear();
+    },
     update({ camera, earthGroup, target, viewportWidth, viewportHeight }) {
-      if (disposed) return;
+      if (disposed || !enabled) return;
 
       const now = performance.now();
 

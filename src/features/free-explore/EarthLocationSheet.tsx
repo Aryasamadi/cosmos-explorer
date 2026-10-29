@@ -21,6 +21,7 @@ import {
 } from '../../app/format';
 import { Sheet } from '../../components/Sheet';
 import { Notice } from '../../components/Notice';
+import { Switch } from '../../components/Switch';
 import { ManualLocationForm } from '../sky-view/ManualLocationForm';
 import { IconPin, IconTarget } from '../../components/Icons';
 
@@ -32,6 +33,9 @@ interface EarthLocationSheetProps {
   onUpdateLocation: (location: GeoLocation) => void;
   onFocus: (location: GeoLocation) => void;
   onClear: () => void;
+  mapOverlayEnabled: boolean;
+  onMapOverlayChange: (enabled: boolean) => void;
+  mapAttributionVisible: boolean;
 }
 
 type BusyState = 'idle' | 'requesting' | 'refining';
@@ -51,6 +55,9 @@ export function EarthLocationSheet({
   onUpdateLocation,
   onFocus,
   onClear,
+  mapOverlayEnabled,
+  onMapOverlayChange,
+  mapAttributionVisible,
 }: EarthLocationSheetProps) {
   const [manualOpen, setManualOpen] = useState(false);
   const [busy, setBusy] = useState<BusyState>('idle');
@@ -258,21 +265,33 @@ export function EarthLocationSheet({
         ) : null}
       </section>
 
+      <section className="settings-section">
+        <h3>لایهٔ نقشه</h3>
+        <Switch
+          checked={mapOverlayEnabled}
+          onChange={onMapOverlayChange}
+          label="نقشهٔ خیابانی OpenStreetMap"
+          description="لایهٔ OSM فقط نزدیک سطح زمین نمایش داده می‌شود و در سمت شب تیره می‌شود تا با روشنایی زمین هماهنگ بماند. با خاموش‌کردن آن، تصویر NASA و کرهٔ پایه باقی می‌مانند."
+        />
+      </section>
+
       <p className="settings-text settings-text--muted">
         دقت گزارش‌شده تضمین GPS نیست و مختصات در همین مرورگر می‌ماند. برای کاشی‌های نقشه
         فقط محدودهٔ تقریبی نما به OpenStreetMap فرستاده می‌شود.
       </p>
-      <div className="map-credit-links">
-        <a href={OSM_RASTER_TILES.attributionUrl} target="_blank" rel="noreferrer noopener">
-          {OSM_RASTER_TILES.attributionText}
-        </a>
-        <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer noopener">
-          گزارش مشکل نقشه
-        </a>
-        <a href={OSM_RASTER_TILES.policyUrl} target="_blank" rel="noreferrer noopener">
-          شرایط سرویس نقشه
-        </a>
-      </div>
+      {mapAttributionVisible ? (
+        <div className="map-credit-links">
+          <a href={OSM_RASTER_TILES.attributionUrl} target="_blank" rel="noreferrer noopener">
+            {OSM_RASTER_TILES.attributionText}
+          </a>
+          <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer noopener">
+            گزارش مشکل نقشه
+          </a>
+          <a href={OSM_RASTER_TILES.policyUrl} target="_blank" rel="noreferrer noopener">
+            شرایط سرویس نقشه
+          </a>
+        </div>
+      ) : null}
     </Sheet>
   );
 }

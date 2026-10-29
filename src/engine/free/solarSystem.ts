@@ -13,6 +13,8 @@ import {
   EARTH_SURFACE_COLOR_GLSL,
 } from './earthSurfaceShader';
 import { createLitBodyMaterial } from './litBodyMaterial';
+import { computeMoonDisplayLight } from './moonPhase';
+import { phaseFractionFromBodyState } from '../../astronomy/referenceFrame';
 
 export interface BodyVisual {
   id: string;
@@ -32,6 +34,7 @@ export interface SolarSystemVisual {
   earthNightTexture: THREE.Texture;
   earthSunDirection: THREE.Vector3;
   applyReferenceFrame(frame: ReferenceFrame): void;
+  updateMoonLighting(camera: THREE.Camera): void;
   sunMaterial: THREE.ShaderMaterial;
   selectionRing: THREE.Sprite;
   update(elapsedSeconds: number, _deltaSeconds: number, lowPower: boolean): void;
@@ -201,6 +204,9 @@ export async function createSolarSystem(
   interactiveMeshes.push(earthMesh);
 
   const moonLit = createLitBodyMaterial(moonTexture);
+  let moonPhaseFraction = 0.5;
+  const moonViewDirection = new THREE.Vector3();
+  const moonSunDirection = new THREE.Vector3();
   const moonMesh = new THREE.Mesh(
     new THREE.SphereGeometry(0.27, 64, 64),
     moonLit.material,
@@ -360,6 +366,7 @@ export async function createSolarSystem(
     marsLit.sunDirection.copy(
       localDirectionToScene(frame.mars.sunDirection),
     );
+    moonPhaseFraction = phaseFractionFromBodyState(frame.moon);
   };
 
   return {
@@ -373,6 +380,19 @@ export async function createSolarSystem(
     earthNightTexture: nightLightsTexture,
     earthSunDirection: earthMaterial.uniforms.uSunDirection!.value as THREE.Vector3,
     applyReferenceFrame,
+    updateMoonLighting(camera: THREE.Camera): void {
+      moonViewDirection.copy(camera.position).sub(moonMesh.position);
+      moonSunDirection.copy(sunMesh.position).sub(moonMesh.position);
+      if (moonViewDirection.lengthSq() < 1e-12 || moonSunDirection.lengthSq() < 1e-12) {
+        return;
+      }
+      computeMoonDisplayLight(
+        moonViewDirection,
+        moonSunDirection,
+        moonPhaseFraction,
+        moonLit.sunDirection,
+      );
+    },
     sunMaterial,
     selectionRing,
     update(elapsedSeconds: number, _deltaSeconds: number, lowPower: boolean): void {

@@ -84,6 +84,15 @@ describe('shared scientific reference frame', () => {
     }
   });
 
+  it.each(DATES)('keeps the Moon phase fraction aligned with the reference at %s', (iso) => {
+    const date = new Date(iso);
+    const frame = computeReferenceFrame(date);
+    const reference = Illumination(Body.Moon, date).phase_fraction;
+    expect(Math.abs(phaseFractionFromBodyState(frame.moon) - reference)).toBeLessThan(
+      0.001,
+    );
+  });
+
   it('uses the body-local Sun direction for Mars, not the Earth-Sun direction', () => {
     const frame = computeReferenceFrame(new Date('2026-06-21T12:00:00.000Z'));
     const angle = angleBetween(frame.mars.sunDirection, frame.sun.sunDirection);

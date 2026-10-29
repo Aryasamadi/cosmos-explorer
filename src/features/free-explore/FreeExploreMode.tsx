@@ -54,6 +54,8 @@ export function FreeExploreMode({ active }: { active: boolean }) {
   const [attempt, setAttempt] = useState(0);
   const [hintVisible, setHintVisible] = useState(true);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
+  const [mapOverlayEnabled, setMapOverlayEnabled] = useState(true);
+  const [scaleHelpOpen, setScaleHelpOpen] = useState(false);
   const [mapStatus, setMapStatus] = useState<MapDetailStatus>(EMPTY_MAP_STATUS);
   const [earthDetailStatus, setEarthDetailStatus] = useState<EarthDetailStatus>(
     EMPTY_EARTH_DETAIL_STATUS,
@@ -71,6 +73,15 @@ export function FreeExploreMode({ active }: { active: boolean }) {
     const timer = window.setTimeout(() => setHintVisible(false), 9000);
     return () => window.clearTimeout(timer);
   }, [hintVisible]);
+
+  useEffect(() => {
+    if (!scaleHelpOpen) return;
+    const closeOnEscape = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setScaleHelpOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [scaleHelpOpen]);
 
   const attachScene = useCallback(
     (node: HTMLDivElement | null): (() => void) | undefined => {
@@ -117,6 +128,12 @@ export function FreeExploreMode({ active }: { active: boolean }) {
       sceneRef.current?.setLowPower(lowPower);
     }
   }, [lowPower, status]);
+
+  useEffect(() => {
+    if (status === 'ready') {
+      sceneRef.current?.setMapOverlayEnabled(mapOverlayEnabled);
+    }
+  }, [mapOverlayEnabled, status]);
 
   useEffect(() => {
     if (status !== 'ready') return;
@@ -206,6 +223,8 @@ export function FreeExploreMode({ active }: { active: boolean }) {
       ? 'مختصات دستی؛ دقت دستگاه نامشخص'
       : formatAccuracy(location.accuracyM)
     : null;
+  const mapAttributionVisible =
+    mapOverlayEnabled && mapStatus.phase !== 'idle';
 
   return (
     <section
@@ -222,25 +241,43 @@ export function FreeExploreMode({ active }: { active: boolean }) {
       />
 
       <div className="scene-top-hud">
-        <div
+        <button
+          type="button"
           className="scale-badge"
-          role="note"
           title={DISPLAY_SCALE_NOTICE_FA}
           aria-label={DISPLAY_SCALE_NOTICE_FA}
+          aria-expanded={scaleHelpOpen}
+          aria-controls="free-scale-help"
+          onClick={() => setScaleHelpOpen((value) => !value)}
         >
           <IconInfo size={16} />
           <span>مقیاس نمایشی</span>
-        </div>
+        </button>
+        {scaleHelpOpen ? (
+          <div id="free-scale-help" className="scale-help glass" role="note">
+            <p>{DISPLAY_SCALE_NOTICE_FA}</p>
+            <button
+              type="button"
+              className="scale-help__close"
+              onClick={() => setScaleHelpOpen(false)}
+              aria-label="بستن توضیح مقیاس"
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
       </div>
 
-      <a
-        className="map-attribution-corner"
-        href={OSM_RASTER_TILES.attributionUrl}
-        target="_blank"
-        rel="noreferrer noopener"
-      >
-        {OSM_RASTER_TILES.attributionText}
-      </a>
+      {mapAttributionVisible ? (
+        <a
+          className="map-attribution-corner"
+          href={OSM_RASTER_TILES.attributionUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          {OSM_RASTER_TILES.attributionText}
+        </a>
+      ) : null}
 
       {effectiveStatus === 'loading' ? (
         <div className="scene-loading" role="status">
@@ -405,6 +442,9 @@ export function FreeExploreMode({ active }: { active: boolean }) {
           onUpdateLocation={handleUpdateLocation}
           onFocus={handleFocusLocation}
           onClear={handleClearLocation}
+          mapOverlayEnabled={mapOverlayEnabled}
+          onMapOverlayChange={setMapOverlayEnabled}
+          mapAttributionVisible={mapAttributionVisible}
         />
       ) : null}
     </section>
