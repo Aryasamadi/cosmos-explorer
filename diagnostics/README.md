@@ -34,8 +34,13 @@ npm run test:diagnostics:update
   خورشید زمین/ماه/مریخ و OSM را پیش و پس از چرخش دوربین مقایسه می‌کند و فاز ماه و
   مریخ را از دید ناظر زمینی با `Illumination` در دو تاریخ می‌سنجد. این probe در
   build تولیدی حذف می‌شود.
+- `freeFlight.spec.ts` با probe فقط-توسعه (`window.__cosmosFlight`) پرواز 6DOF را
+  می‌سنجد: شش محور حرکت، boost، چرخش/غلتش بدون جابه‌جایی، wheel، focus اختیاری،
+  آزادبودن پس از focus، سفر بین Earth/Moon/Sun/Mars، پنل پرواز موبایل، لمس
+  چندانگشتی، حفظ pose در Free/Sky و کنترل‌های دسکتاپ.
 - `visual.spec.ts` با `prefers-reduced-motion` اجرا می‌شود تا WebGL و برچسب‌های
-  متحرک باعث ناپایداری screenshot نشوند؛ assertionهای تصویری تغییر نکرده‌اند.
+  متحرک باعث ناپایداری screenshot نشوند؛ baselineها شامل نمای اولیه، Earth
+  روز/شب، ماه/مریخ و پنل پرواز هستند.
 - `installFixedDate(page, utc)` امکان اجرای هر سناریو در تاریخ UTC دلخواه را می‌دهد؛
   baselineهای دو فاز ماه در تاریخ‌های ۲۰۲۶-۰۶-۲۱ و ۲۰۲۶-۰۹-۲۳ ساخته شده‌اند.
 - baselineهای تصویری با Chrome headless/SwiftShader، DPR=۱ و locale=`fa-IR` تولید
@@ -55,5 +60,6 @@ npm run test:diagnostics:update
 [`docs/mission-007-phase1.md`](../docs/mission-007-phase1.md)،
 [`docs/mission-010-m2.md`](../docs/mission-010-m2.md)،
 [`docs/mission-011-integration.md`](../docs/mission-011-integration.md)،
-[`docs/mission-014-p1.md`](../docs/mission-014-p1.md) و
-[`docs/mission-015-physical-sunlight.md`](../docs/mission-015-physical-sunlight.md).
+[`docs/mission-014-p1.md`](../docs/mission-014-p1.md)،
+[`docs/mission-015-physical-sunlight.md`](../docs/mission-015-physical-sunlight.md) و
+[`docs/mission-016-p2-6dof.md`](../docs/mission-016-p2-6dof.md).

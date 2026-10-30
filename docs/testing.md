@@ -37,36 +37,41 @@ npm run test:diagnostics:astronomy
 npm run test:diagnostics:browser
 ```
 
-این suite شامل تست‌های ناوبری، نور/نجوم، cache، geolocation شبیه‌سازی‌شده،
+این suite شامل تست‌های ناوبری 6DOF، نور/نجوم، cache، geolocation شبیه‌سازی‌شده،
 baselineهای تصویری و کنترل‌های P1 است. در فاز ۱، expected-failهای astronomy و
 geolocation برطرف شدند. M2 نیز چهار نقص ناوبری (انتخاب اولیهٔ Earth، بازگشت
 focus/pose پس از Earth→Moon→Earth، و حفظ state بین Free/Sky) را رفع کرد؛ این چهار
 تست اکنون بدون `test.fail` و با همان assertionهای قبلی pass می‌شوند. P1 نیز
 سایه‌گذاری شبانه/خاموش‌کردن OSM، attribution شرطی، برچسب اجرام و راهنمای مقیاس
 لمسی را پوشش می‌دهد؛ Mission 015 سه تست نور فیزیکی مستقل از دوربین، تطابق frame در
-دو تاریخ و هم‌ترازی OSM با جهت خورشید زمین را اضافه کرد. suite مرورگری اکنون
-**۴۸ تست عادی** دارد (۷ ناوبری، ۸ cache، ۱۵ geolocation، ۱ محیط، ۱۱ visual،
-۱ integration، ۲ P1 و ۳ lighting) و هیچ expected-fail پنهان یا حذف‌شده‌ای ندارد.
-این suite **در CI معمول اجرا نمی‌شود**؛ بنابراین سبزبودن CI فعلی به معنی پوشش آن
-نیست. جزئیات در [گزارش فاز ۰](mission-006-diagnostics.md)،
-[گزارش فاز ۱](mission-007-phase1.md)، [گزارش M2](mission-010-m2.md)،
-[گزارش یکپارچگی M1+M2](mission-011-integration.md)، [گزارش P1](mission-014-p1.md)
-و [گزارش Mission 015](mission-015-physical-sunlight.md) آمده است.
+دو تاریخ و هم‌ترازی OSM با جهت خورشید زمین را اضافه کرد. Mission 016 هشت تست
+مرورگری 6DOF (شش محور حرکت، boost، چرخش/غلتش مستقل، wheel، focus اختیاری، پنل
+پرواز، لمس چندانگشتی، حفظ pose و viewport دسکتاپ) و یک baseline پنل پرواز اضافه
+کرد. suite مرورگری اکنون **۵۷ تست عادی** دارد (۷ ناوبری، ۸ cache، ۱۵ geolocation،
+۱ محیط، ۱۲ visual، ۱ integration، ۲ P1، ۳ lighting و ۸ freeFlight) و هیچ
+expected-fail پنهان یا حذف‌شده‌ای ندارد. این suite **در CI معمول اجرا نمی‌شود**؛
+بنابراین سبزبودن CI فعلی به معنی پوشش آن نیست. جزئیات در
+[گزارش فاز ۰](mission-006-diagnostics.md)، [گزارش فاز ۱](mission-007-phase1.md)،
+[گزارش M2](mission-010-m2.md)، [گزارش یکپارچگی M1+M2](mission-011-integration.md)،
+[گزارش P1](mission-014-p1.md)، [گزارش Mission 015](mission-015-physical-sunlight.md)
+و [گزارش Mission 016](mission-016-p2-6dof.md) آمده است.
 
 ## وضعیت اجرای فعلی
 
-- **۲۰۲ تست Vitest** در ۳۲ فایل و **۱۱ تست مرورگری Playwright**، همه سبز
-  (اجرا در ۲۰۲۶-۱۰-۳۰). M1+M2 و P1 (به‌همراه اصلاح ۰۱۴٫۱) در `main` ادغام و روی
-  GitHub Pages منتشر شده‌اند؛ Mission 015 در شاخهٔ `mission-015-physical-sunlight`
-  توسعه و اعتبارسنجی شد و نتیجهٔ انتشار آن در گزارش نهایی مأموریت ثبت می‌شود.
+- **۲۱۶ تست Vitest** در ۳۳ فایل و **۱۱ تست مرورگری Playwright**، همه سبز
+  (اجرا در ۲۰۲۶-۱۰-۳۰). M1+M2، P1 و Mission 015 در `main` ادغام و روی GitHub Pages
+  منتشر شده‌اند؛ Mission 016 در شاخهٔ `mission-016-p2-6dof` توسعه و اعتبارسنجی شد و
+  نتیجهٔ انتشار آن در گزارش نهایی مأموریت ثبت می‌شود.
 - فاز ۱: frame علمی مشترک (Sun/Moon/Mars)، فاز صحیح ماه/مریخ، LocationService
   مشترک Earth/Sky، و ۱۲ baseline تصویری (شامل دو فاز ماه) بررسی شده‌اند.
 - M1 UI: تایپوگرافی خوانا، هدف لمسی ۴۴px، focus trap/inert، چیدمان مستقل دسکتاپ و
   ۳ تست مرورگری جدید برای اندازه/دسترس‌پذیری اضافه شد. در زمان M1، ۱۸۲ unit و
   ۱۱ E2E سبز بودند.
-- M2: شروع آزاد بدون انتخاب جرم، حفظ جداگانهٔ انتخاب و pose هر mode،
-  orbit/pan/zoom با ماوس و لمس، و میانبرهای مستند کیبورد. چهار نقص ناوبری قبلی
-  به تست عادی تبدیل شدند.
+- M2: شروع آزاد بدون انتخاب جرم، حفظ جداگانهٔ انتخاب و pose هر mode، و
+  میانبرهای مستند کیبورد. چهار نقص ناوبری قبلی به تست عادی تبدیل شدند. Mission 016
+  ناوبری orbit/pan/zoom مبتنی بر target را با پرواز آزاد 6DOF (quaternion، حرکت/
+  چرخش مستقل، focus اختیاری) جایگزین کرد و همان assertionهای حفظ state/pose را
+  با کنترل‌های جدید نگه داشت.
 - M1+M2 integration: شش viewport از ۳۲۰×۵۶۸ تا ۱۹۲۰×۱۰۸۰، چرخهٔ
   Earth→Moon→Earth، Free→Sky→Free و نبود خطای کنسول/شبکه در
   `diagnostics/integration.spec.ts` بررسی شد.
@@ -78,11 +83,17 @@ focus/pose پس از Earth→Moon→Earth، و حفظ state بین Free/Sky) ر�
   دوربین ندارد؛ زمین/OSM از جهت محلی `Earth→Sun` و مریخ از `Mars→Sun` استفاده
   می‌کنند. تست‌های قدیمی فاز نمایشی حذف و با ۱۲ تست هندسی و ۳ تست مرورگری snapshot
   نور جایگزین شدند. baselineهای visual بدون تغییر pass شدند.
-- Browser diagnostics: **۴۸/۴۸** (شامل visual، P1 و lighting)، Astronomy
-  diagnostics: **۱۴/۱۴**، diagnostics typecheck سبز (اجرا در ۲۰۲۶-۱۰-۳۰، ۳۰٫۲m).
-  در ۰۱۴٫۱ یک بار screenshot-stability در `initial-320` timeout شد و همان تست
-  هدفمند سبز شد. در Mission 015، lighting **۳/۳**، visual **۱۱/۱۱** و P1 **۲/۲**
-  سبز شدند. assertionها تغییر نکردند.
+- Mission 016: OrbitControls با کنترلر 6DOF مبتنی بر quaternion جایگزین شد؛
+  movement/rotation مستقل، focus اختیاری و آزاد پس از آن، پنل پرواز موبایل و
+  حفظ pose در Free/Sky اضافه شد. ۱۲ تست واحد کنترلر، ۲ تست focus پنل اطلاعات و
+  ۸ تست مرورگری 6DOF اضافه شدند؛ visual به ۱۲ تست/۱۳ baseline رسید. نور فیزیکی،
+  OSM و منطق M1/M2/P1 در تست‌های جداگانه حفظ شدند.
+- Browser diagnostics: **۵۷/۵۷** (شامل visual، P1، lighting و freeFlight)،
+  Astronomy diagnostics: **۱۴/۱۴**، diagnostics typecheck سبز (اجرا در ۲۰۲۶-۱۰-۳۰،
+  ۲۳٫۴m). lighting **۳/۳**، freeFlight **۸/۸**، visual **۱۲/۱۲** و P1 **۲/۲**.
+  یک اجرای قبلی به‌دلیل کرش محیطی worker ویندوز (`0xC0000142`) نیمه‌کاره ماند؛ پس
+  از پاک‌سازی پردازش‌های Playwright، اجرای کامل تمیز ۵۷/۵۷ شد. assertionها تغییر
+  نکردند.
 - E2E Mission 015: اجرای کامل با سقف پیش‌فرض ۱۲۰s به‌دلیل timeout محیطی تست heavy
   «bundled satellite detail» ۱۰/۱۱ شد؛ همان تست هدفمند ۱/۱ در ۱٫۰m سبز شد. اجرای
   کامل نهایی با سقف محیطی ۱۸۰s **۱۱/۱۱** در ۶٫۷m سبز شد؛ فایل تست/assertion
@@ -92,6 +103,12 @@ focus/pose پس از Earth→Moon→Earth، و حفظ state بین Free/Sky) ر�
   روی preview مسیر Pages: HTTP 200، assetهای `index-BTNVCYsU.js`/`index-ZYbKu1Nu.css`،
   canvas ۳۹۰×۸۴۴، بدون console/pageerror، failed request یا پاسخ ≥۴۰۰ (OSM عمداً
   مسدود شد). probe توسعهٔ `__cosmosLighting` در bundle تولیدی وجود ندارد.
+- E2E Mission 016: **۱۱/۱۱** در ۵٫۹m؛ انتخاب، اطلاعات، مکان دستی، geolocation،
+  کاشی‌ها، UI foundation و viewportهای موبایل/دسکتاپ سبز شدند.
+- Build نهایی Mission 016: Vitest **۲۱۶/۲۱۶** در ۳۳ فایل؛ `build` استاندارد و
+  Pages build با `VITE_BASE_PATH=/cosmos-explorer/` موفق؛ `check:pages` پنج reference
+  را تأیید کرد. preview مسیر Pages: HTML/JS/CSS با HTTP 200 و MIME صحیح.
+  probeهای `__cosmosFlight`/`__cosmosLighting` در bundle تولیدی وجود ندارند.
 - `lint`: بدون خطا و بدون warning.
 - `typecheck`: بدون خطا با TypeScript strict.
 - `build`: موفق (شامل build با base path صفحات و `check:pages`).
