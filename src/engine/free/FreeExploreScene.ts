@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { computeReferenceFrame } from '../../astronomy/referenceFrame';
 import { getBodyById } from '../../catalog/bodies';
@@ -8,14 +7,19 @@ import {
   SimulationClock,
 } from '../../astronomy/simulationClock';
 import { geodeticToUnitVector } from '../../geo/earthCoordinates';
-import {
-  clampCameraDistance,
-  computeEarthNavigationSensitivity,
-} from '../../geo/earthNavigation';
+import { computeEarthNavigationSensitivity } from '../../geo/earthNavigation';
 import type { GeoLocation } from '../../geo/types';
 import { createStarfield } from '../shared/starfield';
 import { disposeObjectTree, removeCanvas } from '../shared/dispose';
 import { RenderLoop } from '../shared/renderLoop';
+import {
+  FreeFlightController,
+  cameraForward,
+  computeProximityMotionScale,
+  quaternionLookingAt,
+  type RotationAxis,
+  type TranslationAxis,
+} from './freeFlight';
 import {
   createSolarSystem,
   type SolarSystemVisual,
@@ -37,17 +41,35 @@ import {
 
 const OVERVIEW_POSITION = new THREE.Vector3(0, 2.15, 7.4);
 const OVERVIEW_TARGET = new THREE.Vector3(0, 0, 0);
+const OVERVIEW_QUATERNION = quaternionLookingAt(OVERVIEW_POSITION, OVERVIEW_TARGET);
 const GEO_FOCUS_DISTANCE = 1.08;
-const MIN_EARTH_CAMERA_DISTANCE = 1.0006;
-const KEY_ORBIT_STEP = THREE.MathUtils.degToRad(6);
-const KEY_PAN_STEP = 0.025;
-const KEY_ZOOM_FACTOR = 0.9;
+const KEY_DOLLY_PIXELS = 360;
+const DRAG_PAN_SCALE = 0.01;
+const TOUCH_PAN_SCALE = 0.008;
 
 const KEYBOARD_BODY_IDS: Record<string, string> = {
   Digit1: 'earth',
   Digit2: 'moon',
   Digit3: 'sun',
   Digit4: 'mars',
+};
+
+const KEYBOARD_TRANSLATION: Record<string, TranslationAxis> = {
+  KeyW: 'forward',
+  KeyS: 'back',
+  KeyA: 'left',
+  KeyD: 'right',
+  KeyQ: 'up',
+  KeyE: 'down',
+};
+
+const KEYBOARD_ROTATION: Record<string, RotationAxis> = {
+  ArrowLeft: 'lookLeft',
+  ArrowRight: 'lookRight',
+  ArrowUp: 'lookUp',
+  ArrowDown: 'lookDown',
+  KeyZ: 'rollLeft',
+  KeyC: 'rollRight',
 };
 
 export interface FreeExploreSceneOptions {
@@ -71,6 +93,7 @@ interface FreeExploreLightingSnapshot {
   moonPosition: number[];
   marsPosition: number[];
   cameraPosition: number[];
+  cameraQuaternion: number[];
 }
 
 interface GeoFocusTween {
@@ -81,12 +104,13 @@ interface GeoFocusTween {
   fromDistance: number;
   toDistance: number;
   rotation: THREE.Quaternion;
+  fromQuaternion: THREE.Quaternion;
+  toQuaternion: THREE.Quaternion;
 }
 
 interface CameraPose {
   position: THREE.Vector3;
-  target: THREE.Vector3;
-  minDistance: number;
+  quaternion: THREE.Quaternion;
 }
 
 interface CameraTween {
@@ -94,8 +118,30 @@ interface CameraTween {
   durationSeconds: number;
   fromPosition: THREE.Vector3;
   toPosition: THREE.Vector3;
-  fromTarget: THREE.Vector3;
-  toTarget: THREE.Vector3;
+  fromQuaternion: THREE.Quaternion;
+  toQuaternion: THREE.Quaternion;
+}
+
+interface FlightSnapshot {
+  position: number[];
+  quaternion: number[];
+  forward: number[];
+  velocity: number[];
+  viewTarget: number[];
+  selectedBodyId: string | null;
+  focusedBodyId: string | null;
+  active: boolean;
+}
+
+interface ActivePointer {
+  x: number;
+  y: number;
+}
+
+interface MultiTouchState {
+  centerX: number;
+  centerY: number;
+  distance: number;
 }
 
 function easeInOutCubic(value: number): number {
@@ -124,7 +170,7 @@ export class FreeExploreScene {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene: THREE.Scene;
   private readonly camera: THREE.PerspectiveCamera;
-  private readonly controls: OrbitControls;
+  private readonly flight: FreeFlightController;
   private readonly visual: SolarSystemVisual;
   private readonly starfield: THREE.Group;
   private readonly labelRenderer: CSS2DRenderer;
@@ -137,6 +183,8 @@ export class FreeExploreScene {
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2();
   private readonly labelProjection = new THREE.Vector3();
+  private readonly viewTarget = new THREE.Vector3();
+  private readonly activePointers = new Map<number, ActivePointer>();
   private readonly options: FreeExploreSceneOptions;
   private readonly resizeObserver: ResizeObserver | null;
   private readonly prefersReducedMotion: boolean;
@@ -148,14 +196,27 @@ export class FreeExploreScene {
   private selectedBodyId: string | null = null;
   private focusedBodyId: string | null = null;
   private readonly savedViews = new Map<string, CameraPose>();
+  private multiTouch: MultiTouchState | null = null;
   private viewportWidth: number;
   private viewportHeight: number;
   private elapsedSeconds = 0;
   private lastAstronomyUpdateMs = 0;
   private disposed = false;
-  private pointerDown: { x: number; y: number; time: number } | null = null;
+  private pointerDown: {
+    id: number;
+    button: number;
+    pointerType: string;
+    mode: 'look' | 'pan' | 'roll';
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    time: number;
+    moved: number;
+  } | null = null;
   private readonly lightingProbe = (): FreeExploreLightingSnapshot =>
     this.readLightingSnapshot();
+  private readonly flightProbe = (): FlightSnapshot => this.readFlightSnapshot();
 
   private constructor(
     renderer: THREE.WebGLRenderer,
@@ -203,20 +264,9 @@ export class FreeExploreScene {
     this.viewportHeight = height;
     this.camera = new THREE.PerspectiveCamera(52, width / height, 0.05, 1200);
     this.camera.position.copy(OVERVIEW_POSITION);
-    this.controls = new OrbitControls(this.camera, renderer.domElement);
-    this.controls.target.copy(OVERVIEW_TARGET);
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.065;
-    this.controls.enablePan = true;
-    this.controls.screenSpacePanning = true;
-    this.controls.panSpeed = 0.6;
-    this.controls.rotateSpeed = 0.55;
-    this.controls.zoomSpeed = 0.85;
-    this.controls.minDistance = MIN_EARTH_CAMERA_DISTANCE;
-    this.controls.maxDistance = 110;
-    this.controls.minPolarAngle = 0.05;
-    this.controls.maxPolarAngle = Math.PI - 0.05;
-    this.controls.update();
+    this.camera.quaternion.copy(OVERVIEW_QUATERNION);
+    this.flight = new FreeFlightController(this.camera);
+    this.flight.setEnabled(this.active);
 
     this.labelRenderer = new CSS2DRenderer();
     this.labelRenderer.domElement.className = 'free-label-layer';
@@ -234,9 +284,14 @@ export class FreeExploreScene {
     renderer.domElement.addEventListener('pointerdown', this.handlePointerDown);
     renderer.domElement.addEventListener('pointerup', this.handlePointerUp);
     renderer.domElement.addEventListener('pointermove', this.handlePointerMove);
+    renderer.domElement.addEventListener('pointercancel', this.handlePointerCancel);
+    renderer.domElement.addEventListener('wheel', this.handleWheel, { passive: false });
+    renderer.domElement.addEventListener('contextmenu', this.handleContextMenu);
     renderer.domElement.addEventListener('webglcontextlost', this.handleContextLost);
     renderer.domElement.addEventListener('webglcontextrestored', this.handleContextRestored);
     document.addEventListener('keydown', this.handleNavigateKeyDown);
+    document.addEventListener('keyup', this.handleNavigateKeyUp);
+    window.addEventListener('blur', this.handleWindowBlur);
 
     this.resizeObserver =
       typeof ResizeObserver === 'undefined'
@@ -244,7 +299,7 @@ export class FreeExploreScene {
         : new ResizeObserver(() => this.resize());
     this.resizeObserver?.observe(options.container);
     this.updateAstronomy(true);
-    this.installLightingProbe();
+    this.updateViewTarget();
 
     this.loop = new RenderLoop((elapsed, delta) => this.renderFrame(elapsed, delta));
     this.loop.start();
@@ -357,13 +412,13 @@ export class FreeExploreScene {
   }
 
   /**
-   * Moves the camera above a geographic coordinate. The OrbitControls target
-   * remains the Earth's center so subsequent orbit/zoom gestures remain
-   * predictable; the camera path follows a great-circle arc to avoid passing
-   * through the globe.
+   * Moves the camera above a geographic coordinate. The camera remains a free
+   * 6DOF body after the transition; the look target used for LOD is derived
+   * from the camera's own quaternion.
    */
   focusGeographicLocation(location: GeoLocation): void {
     this.rememberCurrentView();
+    this.flight.clearInputs();
     this.focusedBodyId = 'earth';
     this.locationLayer.setLocation(location);
     const local = geodeticToUnitVector(location.latitudeDeg, location.longitudeDeg);
@@ -373,25 +428,24 @@ export class FreeExploreScene {
     const direction = new THREE.Vector3(local.x, local.y, local.z)
       .applyQuaternion(worldQuaternion)
       .normalize();
-    // The free-look controls cannot coherently look straight down the world
-    // Y axis at a pole; nudge the camera a few thousandths of a radian away.
-    if (Math.abs(direction.y) > 0.9995) {
-      direction.x += 0.02;
-      direction.z += 0.02;
-      direction.normalize();
-    }
-    this.controls.minDistance = MIN_EARTH_CAMERA_DISTANCE;
-    this.startGeoFocus(direction, GEO_FOCUS_DISTANCE);
+    const toPosition = direction.clone().multiplyScalar(GEO_FOCUS_DISTANCE);
+    const toQuaternion = quaternionLookingAt(toPosition, OVERVIEW_TARGET);
+    this.savedViews.set('earth', {
+      position: toPosition.clone(),
+      quaternion: toQuaternion.clone(),
+    });
+    this.startGeoFocus(direction, GEO_FOCUS_DISTANCE, toQuaternion);
   }
 
   focusBody(bodyId: string): void {
     const body = this.visual.bodies.get(bodyId);
     if (!body) return;
-    if (this.focusedBodyId === bodyId && !this.tween && !this.geoFocusTween) {
-      return;
-    }
 
-    this.rememberCurrentView();
+    const previousBodyId = this.focusedBodyId;
+    if (previousBodyId && previousBodyId !== bodyId) {
+      this.rememberCurrentView();
+    }
+    this.flight.clearInputs();
     this.geoFocusTween = null;
 
     if (bodyId === 'earth') {
@@ -405,15 +459,15 @@ export class FreeExploreScene {
       return;
     }
 
-    const currentDirection = this.camera.position.clone().sub(this.controls.target);
+    const currentDirection = this.camera.position.clone().sub(body.position);
     if (currentDirection.lengthSq() < 1e-8) {
-      currentDirection.set(0, 0.35, 1);
+      currentDirection.copy(OVERVIEW_TARGET).sub(body.position);
     }
     currentDirection.normalize();
 
     // Moon and Mars are viewed from the Earth-facing side so the visible phase
     // corresponds to the geocentric reference phase. Other bodies use the
-    // existing camera approach direction.
+    // current approach direction.
     const direction =
       bodyId === 'moon' || bodyId === 'mars'
         ? body.position.clone().negate().normalize()
@@ -421,47 +475,60 @@ export class FreeExploreScene {
 
     const distance = Math.max(body.radius * 4.6, body.radius + 1.5);
     const toPosition = body.position.clone().addScaledVector(direction, distance);
-    this.controls.minDistance = Math.max(0.32, body.radius * 1.35);
+    const toQuaternion = quaternionLookingAt(toPosition, body.position);
     this.focusedBodyId = bodyId;
-    this.startTween(toPosition, body.position);
+    this.startTween(toPosition, toQuaternion);
   }
 
   resetOverview(rememberCurrent = true): void {
     if (rememberCurrent) {
       this.rememberCurrentView();
     }
+    this.flight.clearInputs();
     this.geoFocusTween = null;
-    this.controls.minDistance = MIN_EARTH_CAMERA_DISTANCE;
     this.focusedBodyId = 'earth';
     this.savedViews.set('earth', {
       position: OVERVIEW_POSITION.clone(),
-      target: OVERVIEW_TARGET.clone(),
-      minDistance: MIN_EARTH_CAMERA_DISTANCE,
+      quaternion: OVERVIEW_QUATERNION.clone(),
     });
-    this.startTween(OVERVIEW_POSITION.clone(), OVERVIEW_TARGET.clone());
+    this.startTween(OVERVIEW_POSITION.clone(), OVERVIEW_QUATERNION.clone());
+  }
+
+  setManualTranslation(axis: TranslationAxis, active: boolean): void {
+    if (!this.active || this.tween || this.geoFocusTween) return;
+    this.flight.setTranslation(axis, active);
+  }
+
+  setManualRotation(axis: RotationAxis, active: boolean): void {
+    if (!this.active || this.tween || this.geoFocusTween) return;
+    this.flight.setRotation(axis, active);
   }
 
   setActive(active: boolean): void {
     this.active = active;
-    this.controls.enabled = active;
+    this.flight.setEnabled(active);
     this.loop.setPaused(!active);
     if (active) {
       this.resize();
     }
   }
 
+  /** Diagnostics harness; compiled to a no-op outside development builds. */
+  installDiagnosticProbes(): void {
+    this.installLightingProbe();
+    this.installFlightProbe();
+  }
+
   private rememberCurrentView(): void {
     if (!this.focusedBodyId) return;
     this.savedViews.set(this.focusedBodyId, {
       position: this.camera.position.clone(),
-      target: this.controls.target.clone(),
-      minDistance: this.controls.minDistance,
+      quaternion: this.camera.quaternion.clone(),
     });
   }
 
   private restorePose(pose: CameraPose): void {
-    this.controls.minDistance = pose.minDistance;
-    this.startTween(pose.position.clone(), pose.target.clone());
+    this.startTween(pose.position.clone(), pose.quaternion.clone());
   }
 
   setLowPower(enabled: boolean): void {
@@ -484,7 +551,41 @@ export class FreeExploreScene {
       moonPosition: moon.position.toArray(),
       marsPosition: mars.position.toArray(),
       cameraPosition: this.camera.position.toArray(),
+      cameraQuaternion: this.camera.quaternion.toArray(),
     };
+  }
+
+  private readFlightSnapshot(): FlightSnapshot {
+    const forward = cameraForward(this.camera);
+    return {
+      position: this.camera.position.toArray(),
+      quaternion: this.camera.quaternion.toArray(),
+      forward: forward.toArray(),
+      velocity: this.flight.velocity.toArray(),
+      viewTarget: this.viewTarget.toArray(),
+      selectedBodyId: this.selectedBodyId,
+      focusedBodyId: this.focusedBodyId,
+      active: this.active,
+    };
+  }
+
+  private installFlightProbe(): void {
+    if (!import.meta.env.DEV || typeof window === 'undefined') return;
+    (
+      window as Window & {
+        __cosmosFlight?: () => FlightSnapshot;
+      }
+    ).__cosmosFlight = this.flightProbe;
+  }
+
+  private removeFlightProbe(): void {
+    if (!import.meta.env.DEV || typeof window === 'undefined') return;
+    const scope = window as Window & {
+      __cosmosFlight?: () => FlightSnapshot;
+    };
+    if (scope.__cosmosFlight === this.flightProbe) {
+      delete scope.__cosmosFlight;
+    }
   }
 
   private installLightingProbe(): void {
@@ -510,18 +611,23 @@ export class FreeExploreScene {
     if (this.disposed) return;
     this.disposed = true;
     this.removeLightingProbe();
+    this.removeFlightProbe();
     this.loop.stop();
     this.resizeObserver?.disconnect();
     this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown);
     this.renderer.domElement.removeEventListener('pointerup', this.handlePointerUp);
     this.renderer.domElement.removeEventListener('pointermove', this.handlePointerMove);
+    this.renderer.domElement.removeEventListener('pointercancel', this.handlePointerCancel);
+    this.renderer.domElement.removeEventListener('wheel', this.handleWheel);
+    this.renderer.domElement.removeEventListener('contextmenu', this.handleContextMenu);
     this.renderer.domElement.removeEventListener('webglcontextlost', this.handleContextLost);
     this.renderer.domElement.removeEventListener(
       'webglcontextrestored',
       this.handleContextRestored,
     );
     document.removeEventListener('keydown', this.handleNavigateKeyDown);
-    this.controls.dispose();
+    document.removeEventListener('keyup', this.handleNavigateKeyUp);
+    window.removeEventListener('blur', this.handleWindowBlur);
     for (const label of this.bodyLabels.values()) {
       label.removeFromParent();
       label.element.remove();
@@ -538,23 +644,31 @@ export class FreeExploreScene {
     removeCanvas(canvas);
   }
 
-  private startTween(toPosition: THREE.Vector3, toTarget: THREE.Vector3): void {
+  private startTween(
+    toPosition: THREE.Vector3,
+    toQuaternion: THREE.Quaternion,
+  ): void {
     this.geoFocusTween = null;
-    this.controls.enabled = false;
+    this.flight.clearInputs();
+    this.flight.setEnabled(false);
     this.tween = {
       startSeconds: this.elapsedSeconds,
       durationSeconds: this.prefersReducedMotion ? 0.2 : 0.9,
       fromPosition: this.camera.position.clone(),
       toPosition,
-      fromTarget: this.controls.target.clone(),
-      toTarget,
+      fromQuaternion: this.camera.quaternion.clone(),
+      toQuaternion,
     };
   }
 
-  private startGeoFocus(toDirection: THREE.Vector3, distance: number): void {
+  private startGeoFocus(
+    toDirection: THREE.Vector3,
+    distance: number,
+    toQuaternion: THREE.Quaternion,
+  ): void {
     this.tween = null;
-    this.controls.enabled = false;
-    this.controls.target.copy(OVERVIEW_TARGET);
+    this.flight.clearInputs();
+    this.flight.setEnabled(false);
     const fromDirection = this.camera.position.clone().normalize();
     const fromDistance = this.camera.position.length();
     const rotation = new THREE.Quaternion().setFromUnitVectors(
@@ -567,8 +681,10 @@ export class FreeExploreScene {
       fromDirection,
       toDirection: toDirection.clone(),
       fromDistance: Math.max(fromDistance, distance),
-      toDistance: Math.max(distance, MIN_EARTH_CAMERA_DISTANCE),
+      toDistance: Math.max(distance, 1.0006),
       rotation,
+      fromQuaternion: this.camera.quaternion.clone(),
+      toQuaternion: toQuaternion.clone(),
     };
   }
 
@@ -582,49 +698,52 @@ export class FreeExploreScene {
     this.updateSelectionRing();
   }
 
-  private orbitBy(dx: number, dy: number): void {
-    const offset = this.camera.position.clone().sub(this.controls.target);
-    const spherical = new THREE.Spherical().setFromVector3(offset);
-    spherical.theta += dx * KEY_ORBIT_STEP;
-    spherical.phi = THREE.MathUtils.clamp(
-      spherical.phi + dy * KEY_ORBIT_STEP,
-      this.controls.minPolarAngle,
-      this.controls.maxPolarAngle,
-    );
-    spherical.makeSafe();
-    this.camera.position
-      .copy(this.controls.target)
-      .add(new THREE.Vector3().setFromSpherical(spherical));
-    this.camera.lookAt(this.controls.target);
-    this.controls.update();
+  private nearestSurfaceGap(): number {
+    let nearest = Infinity;
+    for (const body of this.visual.bodies.values()) {
+      nearest = Math.min(
+        nearest,
+        this.camera.position.distanceTo(body.position) - body.radius,
+      );
+    }
+    return Math.max(nearest, 0.0001);
   }
 
-  private panBy(dx: number, dy: number): void {
-    const distance = this.camera.position.distanceTo(this.controls.target);
-    const step = distance * KEY_PAN_STEP;
-    const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrix, 0);
-    const up = new THREE.Vector3().setFromMatrixColumn(this.camera.matrix, 1);
-    const delta = right
-      .multiplyScalar(dx * step)
-      .add(up.multiplyScalar(dy * step));
-    this.camera.position.add(delta);
-    this.controls.target.add(delta);
-    this.controls.update();
+  private motionScale(): number {
+    return computeProximityMotionScale(this.nearestSurfaceGap());
   }
 
-  private zoomBy(factor: number): void {
-    const offset = this.camera.position.clone().sub(this.controls.target);
-    const length = offset.length();
-    if (length < 1e-9) return;
-    const nextLength = THREE.MathUtils.clamp(
-      length * factor,
-      this.controls.minDistance,
-      this.controls.maxDistance,
-    );
-    this.camera.position
-      .copy(this.controls.target)
-      .add(offset.normalize().multiplyScalar(nextLength));
-    this.controls.update();
+  private lookRadiansPerPixel(): number {
+    const viewportHeight = Math.max(this.viewportHeight, 1);
+    const earth = this.visual.bodies.get('earth');
+    const gap = this.nearestSurfaceGap();
+    if (earth) {
+      const earthDistance = this.camera.position.distanceTo(earth.position);
+      const earthGap = earthDistance - earth.radius;
+      if (earthGap <= gap + 1e-6 && earthGap < 8) {
+        const navigation = computeEarthNavigationSensitivity(
+          Math.max(earthDistance, 1.0001),
+          this.camera.fov,
+        );
+        return (Math.PI * 2 * navigation.rotateSpeed) / viewportHeight;
+      }
+    }
+    const proximity = THREE.MathUtils.clamp(gap / 8, 0.25, 1);
+    return (Math.PI * 2 * 0.55 * proximity) / viewportHeight;
+  }
+
+  private applyLookPixels(dx: number, dy: number): void {
+    const sensitivity = this.lookRadiansPerPixel();
+    this.flight.applyLook(dx * sensitivity, -dy * sensitivity, 0);
+  }
+
+  private dollyByPixels(pixels: number): void {
+    const gap = this.nearestSurfaceGap();
+    this.flight.addForwardImpulse(pixels * (0.0004 + gap * 0.0012));
+  }
+
+  private panByPixels(dx: number, dy: number, scale: number): void {
+    this.flight.addScreenImpulse(dx, dy, scale * this.motionScale());
   }
 
   private readonly handleNavigateKeyDown = (event: KeyboardEvent): void => {
@@ -638,6 +757,11 @@ export class FreeExploreScene {
       return;
     }
     if (document.querySelector('.sheet-backdrop')) return;
+
+    if (event.key === 'Shift') {
+      this.flight.setBoost(true);
+      return;
+    }
 
     const bodyId = KEYBOARD_BODY_IDS[event.code];
     if (bodyId) {
@@ -658,7 +782,7 @@ export class FreeExploreScene {
       event.key === '+'
     ) {
       event.preventDefault();
-      this.zoomBy(KEY_ZOOM_FACTOR);
+      this.dollyByPixels(KEY_DOLLY_PIXELS);
       return;
     }
     if (
@@ -667,35 +791,60 @@ export class FreeExploreScene {
       event.key === '-'
     ) {
       event.preventDefault();
-      this.zoomBy(1 / KEY_ZOOM_FACTOR);
+      this.dollyByPixels(-KEY_DOLLY_PIXELS);
       return;
     }
 
-    const dx =
-      event.code === 'ArrowLeft' ? -1 : event.code === 'ArrowRight' ? 1 : 0;
-    const dy =
-      event.code === 'ArrowUp' ? -1 : event.code === 'ArrowDown' ? 1 : 0;
-    if (dx === 0 && dy === 0) return;
-    event.preventDefault();
-    if (event.shiftKey) {
-      this.panBy(dx, dy);
-    } else {
-      this.orbitBy(dx, dy);
+    const translation = KEYBOARD_TRANSLATION[event.code];
+    if (translation) {
+      event.preventDefault();
+      this.flight.setTranslation(translation, true);
+      return;
+    }
+
+    const rotation = KEYBOARD_ROTATION[event.code];
+    if (rotation) {
+      event.preventDefault();
+      this.flight.setRotation(rotation, true);
     }
   };
 
-  private enforceEarthCollision(): void {
-    const distance = this.camera.position.length();
-    if (distance < MIN_EARTH_CAMERA_DISTANCE) {
-      this.camera.position.setLength(
-        clampCameraDistance(distance, MIN_EARTH_CAMERA_DISTANCE),
-      );
+  private readonly handleNavigateKeyUp = (event: KeyboardEvent): void => {
+    if (event.key === 'Shift') {
+      this.flight.setBoost(false);
     }
+    const translation = KEYBOARD_TRANSLATION[event.code];
+    if (translation) {
+      this.flight.setTranslation(translation, false);
+    }
+    const rotation = KEYBOARD_ROTATION[event.code];
+    if (rotation) {
+      this.flight.setRotation(rotation, false);
+    }
+  };
+
+  private readonly handleWindowBlur = (): void => {
+    this.flight.clearInputs();
+  };
+
+  private enforceEarthCollision(): void {
+    this.flight.clampPosition();
+  }
+
+  private updateViewTarget(): void {
+    const earth = this.visual.bodies.get('earth');
+    const distance = earth
+      ? this.camera.position.distanceTo(earth.position)
+      : this.camera.position.length();
+    cameraForward(this.camera, this.viewTarget);
+    this.viewTarget
+      .multiplyScalar(Math.max(distance, 0.001))
+      .add(this.camera.position);
   }
 
   private updateEarthProximity(): void {
     const distance = this.camera.position.length();
-    const lookingAtEarth = this.controls.target.lengthSq() < 0.01;
+    const lookingAtEarth = this.viewTarget.lengthSq() < 0.0625;
     const earthDetailActive = lookingAtEarth && distance < 3.2;
     const height = Math.max(distance - 1, 0.0003);
     const near = earthDetailActive
@@ -709,12 +858,6 @@ export class FreeExploreScene {
       this.camera.far = far;
       this.camera.updateProjectionMatrix();
     }
-
-    const sensitivity = lookingAtEarth
-      ? computeEarthNavigationSensitivity(distance, this.camera.fov)
-      : { rotateSpeed: 0.55, zoomSpeed: 0.85 };
-    this.controls.rotateSpeed = sensitivity.rotateSpeed;
-    this.controls.zoomSpeed = sensitivity.zoomSpeed;
 
     // No background bodies may show through the local Earth view. The base is
     // opaque; hiding the distant starfield also keeps the night side readable.
@@ -749,10 +892,14 @@ export class FreeExploreScene {
         progress,
       );
       this.camera.position.copy(direction.multiplyScalar(distance));
-      this.controls.target.copy(OVERVIEW_TARGET);
+      this.camera.quaternion.slerpQuaternions(
+        tween.fromQuaternion,
+        tween.toQuaternion,
+        progress,
+      );
       if (rawProgress >= 1) {
         this.geoFocusTween = null;
-        this.controls.enabled = true;
+        this.flight.setEnabled(true);
       }
     } else if (this.tween) {
       const rawProgress = Math.min(
@@ -765,15 +912,22 @@ export class FreeExploreScene {
         this.tween.toPosition,
         progress,
       );
-      this.controls.target.lerpVectors(this.tween.fromTarget, this.tween.toTarget, progress);
+      this.camera.quaternion.slerpQuaternions(
+        this.tween.fromQuaternion,
+        this.tween.toQuaternion,
+        progress,
+      );
       if (rawProgress >= 1) {
         this.tween = null;
-        this.controls.enabled = true;
+        this.flight.setEnabled(true);
       }
+    } else {
+      this.flight.update(delta, this.motionScale());
     }
 
     this.enforceEarthCollision();
-    this.controls.update();
+    this.updateViewTarget();
+    this.camera.updateMatrixWorld();
     this.updateEarthProximity();
     this.updateAstronomy();
     // Do not request tile sets for intermediate camera positions during a
@@ -781,7 +935,7 @@ export class FreeExploreScene {
     this.earthDetail.update({
       camera: this.camera,
       earthGroup: this.visual.earthSpinGroup,
-      target: this.controls.target,
+      target: this.viewTarget,
       viewportWidth: this.viewportWidth,
       viewportHeight: this.viewportHeight,
       pixelRatio: this.renderer.getPixelRatio(),
@@ -791,7 +945,7 @@ export class FreeExploreScene {
       this.globeTiles.update({
         camera: this.camera,
         earthGroup: this.visual.earthSpinGroup,
-        target: this.controls.target,
+        target: this.viewTarget,
         viewportWidth: this.viewportWidth,
         viewportHeight: this.viewportHeight,
         deltaSeconds: delta,
@@ -827,18 +981,133 @@ export class FreeExploreScene {
   }
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
-    this.pointerDown = { x: event.clientX, y: event.clientY, time: performance.now() };
+    if (!this.active || this.tween || this.geoFocusTween) return;
+    if (event.pointerType === 'mouse' && ![0, 1, 2].includes(event.button)) return;
+    this.renderer.domElement.setPointerCapture?.(event.pointerId);
+    this.activePointers.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
     this.renderer.domElement.style.cursor = 'grabbing';
+
+    if (this.activePointers.size === 1) {
+      this.multiTouch = null;
+      const mode: 'look' | 'pan' | 'roll' =
+        event.pointerType !== 'touch' && event.button === 2
+          ? 'pan'
+          : event.pointerType !== 'touch' && event.button === 1
+            ? 'roll'
+            : 'look';
+      this.pointerDown = {
+        id: event.pointerId,
+        button: event.button,
+        pointerType: event.pointerType,
+        mode,
+        startX: event.clientX,
+        startY: event.clientY,
+        lastX: event.clientX,
+        lastY: event.clientY,
+        time: performance.now(),
+        moved: 0,
+      };
+      return;
+    }
+
+    if (this.activePointers.size === 2) {
+      const [first, second] = [...this.activePointers.values()];
+      if (first && second) {
+        this.multiTouch = {
+          centerX: (first.x + second.x) / 2,
+          centerY: (first.y + second.y) / 2,
+          distance: Math.hypot(first.x - second.x, first.y - second.y),
+        };
+      }
+      this.pointerDown = null;
+    }
+  };
+
+  private readonly handlePointerMove = (event: PointerEvent): void => {
+    if (!this.activePointers.has(event.pointerId)) {
+      if (event.pointerType === 'mouse' && this.activePointers.size === 0) {
+        this.updateRaycaster(event);
+        const hits = this.raycaster.intersectObjects(
+          this.visual.interactiveMeshes,
+          false,
+        );
+        this.renderer.domElement.style.cursor =
+          hits.length > 0 ? 'pointer' : 'grab';
+      }
+      return;
+    }
+
+    const previous = this.activePointers.get(event.pointerId);
+    if (!previous) return;
+    this.activePointers.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    if (this.multiTouch && this.activePointers.size >= 2) {
+      const [first, second] = [...this.activePointers.values()];
+      if (first && second) {
+        const centerX = (first.x + second.x) / 2;
+        const centerY = (first.y + second.y) / 2;
+        const distance = Math.hypot(first.x - second.x, first.y - second.y);
+        const distanceDelta = distance - this.multiTouch.distance;
+        if (Math.abs(distanceDelta) > 0.5) {
+          this.dollyByPixels(distanceDelta);
+        }
+        this.panByPixels(
+          centerX - this.multiTouch.centerX,
+          centerY - this.multiTouch.centerY,
+          TOUCH_PAN_SCALE,
+        );
+        this.multiTouch = { centerX, centerY, distance };
+      }
+      return;
+    }
+
+    const gesture = this.pointerDown;
+    if (!gesture || gesture.id !== event.pointerId) return;
+    const dx = event.clientX - gesture.lastX;
+    const dy = event.clientY - gesture.lastY;
+    gesture.lastX = event.clientX;
+    gesture.lastY = event.clientY;
+    gesture.moved += Math.hypot(dx, dy);
+
+    if (gesture.mode === 'look') {
+      this.applyLookPixels(dx, dy);
+    } else if (gesture.mode === 'pan') {
+      this.panByPixels(dx, dy, DRAG_PAN_SCALE);
+    } else {
+      const sensitivity = this.lookRadiansPerPixel();
+      this.flight.applyLook(0, 0, dx * sensitivity * 0.8);
+    }
   };
 
   private readonly handlePointerUp = (event: PointerEvent): void => {
-    const start = this.pointerDown;
-    this.pointerDown = null;
-    this.renderer.domElement.style.cursor = 'grab';
-    if (!start) return;
-    const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
-    const duration = performance.now() - start.time;
-    if (moved > 8 || duration > 900 || this.tween || this.geoFocusTween) return;
+    const gesture = this.pointerDown;
+    const wasSinglePointer = this.activePointers.size === 1;
+    this.activePointers.delete(event.pointerId);
+    this.renderer.domElement.releasePointerCapture?.(event.pointerId);
+    if (this.activePointers.size < 2) this.multiTouch = null;
+    if (this.activePointers.size === 0) {
+      this.pointerDown = null;
+      this.renderer.domElement.style.cursor = 'grab';
+    }
+
+    if (
+      !gesture ||
+      !wasSinglePointer ||
+      gesture.id !== event.pointerId ||
+      gesture.moved > 8 ||
+      performance.now() - gesture.time > 900 ||
+      gesture.button !== 0 ||
+      this.tween ||
+      this.geoFocusTween
+    ) {
+      return;
+    }
 
     this.updateRaycaster(event);
     const hits = this.raycaster.intersectObjects(this.visual.interactiveMeshes, false);
@@ -848,11 +1117,34 @@ export class FreeExploreScene {
     }
   };
 
-  private readonly handlePointerMove = (event: PointerEvent): void => {
-    if (event.pointerType !== 'mouse' || this.pointerDown) return;
-    this.updateRaycaster(event);
-    const hits = this.raycaster.intersectObjects(this.visual.interactiveMeshes, false);
-    this.renderer.domElement.style.cursor = hits.length > 0 ? 'pointer' : 'grab';
+  private readonly handlePointerCancel = (event: PointerEvent): void => {
+    this.activePointers.delete(event.pointerId);
+    this.renderer.domElement.releasePointerCapture?.(event.pointerId);
+    if (this.activePointers.size < 2) this.multiTouch = null;
+    if (this.activePointers.size === 0) {
+      this.pointerDown = null;
+      this.renderer.domElement.style.cursor = 'grab';
+    }
+  };
+
+  private readonly handleWheel = (event: WheelEvent): void => {
+    if (!this.active || this.tween || this.geoFocusTween) {
+      event.preventDefault();
+      return;
+    }
+    event.preventDefault();
+    const modeScale =
+      event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1;
+    const delta = THREE.MathUtils.clamp(
+      -event.deltaY * modeScale,
+      -900,
+      900,
+    );
+    this.dollyByPixels(delta);
+  };
+
+  private readonly handleContextMenu = (event: Event): void => {
+    event.preventDefault();
   };
 
   private readonly handleContextLost = (event: Event): void => {

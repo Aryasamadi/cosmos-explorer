@@ -13,7 +13,7 @@ import {
   formatLocalDateTime,
   formatNumber,
 } from '../../app/format';
-import { IconClose, IconExternal } from '../../components/Icons';
+import { IconClose, IconExternal, IconTarget } from '../../components/Icons';
 import { Notice } from '../../components/Notice';
 
 export interface CelestialInfoPanelProps {
@@ -21,6 +21,7 @@ export interface CelestialInfoPanelProps {
   mode: 'free' | 'sky';
   open: boolean;
   onClose: () => void;
+  onFocus?: () => void;
   position?: SkyObjectPosition | null;
   timestamp?: Date | null;
 }
@@ -30,6 +31,7 @@ export function CelestialInfoPanel({
   mode,
   open,
   onClose,
+  onFocus,
   position = null,
   timestamp = null,
 }: CelestialInfoPanelProps) {
@@ -82,6 +84,20 @@ export function CelestialInfoPanel({
       </header>
 
       <p className="info-panel__description">{body.descriptionFa}</p>
+
+      {mode === 'free' && onFocus ? (
+        <div className="info-panel__actions">
+          <button
+            type="button"
+            className="button button--glass info-panel__focus"
+            onClick={onFocus}
+            aria-label={`فوکوس روی ${body.nameFa}`}
+          >
+            <IconTarget size={16} />
+            فوکوس روی این جرم
+          </button>
+        </div>
+      ) : null}
 
       {mode === 'sky' ? (
         <section className="live-card" aria-label="موقعیت لحظه‌ای">

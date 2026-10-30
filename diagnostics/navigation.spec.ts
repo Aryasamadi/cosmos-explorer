@@ -16,6 +16,45 @@ function pressedBody(page: Page) {
   return page.locator('.body-pill[aria-pressed="true"]');
 }
 
+interface FlightPose {
+  position: number[];
+  quaternion: number[];
+}
+
+async function readFlightPose(page: Page): Promise<FlightPose> {
+  await page.waitForFunction(
+    () =>
+      typeof (window as Window & { __cosmosFlight?: unknown }).__cosmosFlight ===
+      'function',
+    undefined,
+    { timeout: 30_000 },
+  );
+  return page.evaluate(() => {
+    const probe = (
+      window as Window & { __cosmosFlight?: () => FlightPose }
+    ).__cosmosFlight;
+    if (!probe) throw new Error('Flight probe disappeared.');
+    return probe();
+  });
+}
+
+function poseDistance(left: FlightPose, right: FlightPose): number {
+  return Math.hypot(
+    left.position[0]! - right.position[0]!,
+    left.position[1]! - right.position[1]!,
+    left.position[2]! - right.position[2]!,
+  );
+}
+
+function quaternionAngleDeg(left: number[], right: number[]): number {
+  const cosine =
+    left[0]! * right[0]! +
+    left[1]! * right[1]! +
+    left[2]! * right[2]! +
+    left[3]! * right[3]!;
+  return (2 * Math.acos(Math.min(1, Math.abs(cosine))) * 180) / Math.PI;
+}
+
 test.describe('navigation and state preservation diagnostics', () => {
   test('initial view opens without a forced Earth selection', async ({ page }) => {
     await installFixedDate(page);
@@ -36,17 +75,36 @@ test.describe('navigation and state preservation diagnostics', () => {
     await focusManualLocation(page, 30.0444, 31.2357);
     await waitForMapReady(page);
     const mapBefore = page.locator('.earth-map-status');
+    const earthView = await readFlightPose(page);
 
     await page.locator('.body-pill', { hasText: 'ماه' }).click();
     await expect(page.getByTestId('celestial-info-panel')).toBeVisible();
-    await page.getByTestId('celestial-info-panel').getByRole('button', { name: 'بستن اطلاعات' }).click();
+    await page
+      .getByTestId('celestial-info-panel')
+      .getByRole('button', { name: 'فوکوس روی ماه' })
+      .click();
     await page.waitForTimeout(2200);
+    const moonView = await readFlightPose(page);
+    expect(poseDistance(earthView, moonView)).toBeGreaterThan(0.5);
+    await page
+      .getByTestId('celestial-info-panel')
+      .getByRole('button', { name: 'بستن اطلاعات' })
+      .click();
 
     await page.locator('.body-pill', { hasText: 'زمین' }).click();
-    await page.waitForTimeout(2600);
+    await page
+      .getByTestId('celestial-info-panel')
+      .getByRole('button', { name: 'فوکوس روی زمین' })
+      .click();
+    await page.waitForTimeout(2200);
 
     await expect(pressedBody(page)).toHaveText('زمین', { timeout: 3_000 });
     await expect(mapBefore).toContainText('جزئیات نقشه فعال', { timeout: 3_000 });
+    const restored = await readFlightPose(page);
+    expect(poseDistance(earthView, restored)).toBeLessThan(0.01);
+    expect(
+      quaternionAngleDeg(earthView.quaternion, restored.quaternion),
+    ).toBeLessThan(0.05);
   });
 
   test('Free -> Sky -> Free preserves the selected Earth context', async ({ page }) => {
@@ -116,24 +174,30 @@ test.describe('navigation and state preservation diagnostics', () => {
     const panned = await captureCanvasSignature(page);
     expect(meanAbsoluteDifference(dragged, panned)).toBeGreaterThan(0.2);
 
-    await page.keyboard.press('Shift+ArrowRight');
-    await page.waitForTimeout(300);
-    const keyPanned = await captureCanvasSignature(page);
-    expect(meanAbsoluteDifference(panned, keyPanned)).toBeGreaterThan(0.1);
-
-    await page.mouse.wheel(0, -360);
+    await page.keyboard.down('d');
+    await page.waitForTimeout(350);
+    await page.keyboard.up('d');
     await page.waitForTimeout(400);
-    const zoomed = await captureCanvasSignature(page);
-    expect(meanAbsoluteDifference(keyPanned, zoomed)).toBeGreaterThan(0.2);
+    const keyMoved = await captureCanvasSignature(page);
+    expect(meanAbsoluteDifference(panned, keyMoved)).toBeGreaterThan(0.1);
+
+    const beforeWheel = await readFlightPose(page);
+    await page.mouse.wheel(0, -900);
+    await page.waitForTimeout(700);
+    const afterWheel = await readFlightPose(page);
+    expect(poseDistance(beforeWheel, afterWheel)).toBeGreaterThan(0.05);
 
     await page.keyboard.press('Home');
     await page.waitForTimeout(1500);
     const home = await captureCanvasSignature(page);
     expect(meanAbsoluteDifference(initial, home)).toBeLessThan(5);
 
+    const beforeSelection = await readFlightPose(page);
     await page.keyboard.press('Digit2');
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(600);
     await expect(pressedBody(page)).toHaveText('ماه');
+    const afterSelection = await readFlightPose(page);
+    expect(poseDistance(beforeSelection, afterSelection)).toBeLessThan(1e-9);
   });
 
   test('touch drag and pinch reach the free-space controls', async ({ page }) => {

@@ -14,6 +14,7 @@ interface LightingSnapshot {
   moonPosition: number[];
   marsPosition: number[];
   cameraPosition: number[];
+  cameraQuaternion: number[];
 }
 
 async function readLighting(page: Page): Promise<LightingSnapshot> {
@@ -58,7 +59,33 @@ function phaseFromEarthObserver(
   return (1 + dot(towardEarth, normalize(sunDirection))) / 2;
 }
 
-test('camera orbit, zoom, pan and selection leave every Sun direction unchanged', async ({
+function quaternionAngleDeg(left: number[], right: number[]): number {
+  const cosine =
+    left[0]! * right[0]! +
+    left[1]! * right[1]! +
+    left[2]! * right[2]! +
+    left[3]! * right[3]!;
+  return (2 * Math.acos(Math.min(1, Math.abs(cosine))) * 180) / Math.PI;
+}
+
+async function waitForFlightIdle(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const probe = (
+        window as Window & {
+          __cosmosFlight?: () => { velocity: number[] };
+        }
+      ).__cosmosFlight;
+      if (!probe) return false;
+      const { velocity } = probe();
+      return Math.hypot(velocity[0]!, velocity[1]!, velocity[2]!) < 0.0005;
+    },
+    undefined,
+    { timeout: 5_000 },
+  );
+}
+
+test('free-flight look, translation and focus leave every Sun direction unchanged', async ({
   page,
 }) => {
   await installFixedDate(page, '2026-06-21T12:00:00.000Z');
@@ -78,39 +105,49 @@ test('camera orbit, zoom, pan and selection leave every Sun direction unchanged'
     expect(after.marsPosition).toEqual(before.marsPosition);
   };
 
-  for (let index = 0; index < 30; index += 1) {
-    await page.keyboard.press('ArrowLeft');
-  }
+  await page.mouse.move(195, 420);
+  await page.mouse.down();
+  await page.mouse.move(280, 455, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const afterLook = await readLighting(page);
+  expect(
+    quaternionAngleDeg(before.cameraQuaternion, afterLook.cameraQuaternion),
+  ).toBeGreaterThan(0.2);
+  expect(afterLook.cameraPosition).toEqual(before.cameraPosition);
+  assertLightingUnchanged(afterLook);
+
+  await page.keyboard.down('w');
+  await page.waitForTimeout(400);
+  await page.keyboard.up('w');
+  await page.waitForTimeout(500);
+  const afterTranslate = await readLighting(page);
+  expect(afterTranslate.cameraPosition).not.toEqual(afterLook.cameraPosition);
+  assertLightingUnchanged(afterTranslate);
+
+  await page.mouse.wheel(0, -420);
   await page.waitForTimeout(600);
-  const afterOrbit = await readLighting(page);
-  const orbitShift = Math.hypot(
-    afterOrbit.cameraPosition[0]! - before.cameraPosition[0]!,
-    afterOrbit.cameraPosition[1]! - before.cameraPosition[1]!,
-    afterOrbit.cameraPosition[2]! - before.cameraPosition[2]!,
-  );
-  expect(orbitShift).toBeGreaterThan(1);
-  assertLightingUnchanged(afterOrbit);
+  const afterWheel = await readLighting(page);
+  expect(afterWheel.cameraPosition).not.toEqual(afterTranslate.cameraPosition);
+  assertLightingUnchanged(afterWheel);
 
-  await page.keyboard.press('Equal');
-  await page.keyboard.press('Equal');
-  await page.waitForTimeout(400);
-  const afterZoom = await readLighting(page);
-  expect(afterZoom.cameraPosition).not.toEqual(afterOrbit.cameraPosition);
-  assertLightingUnchanged(afterZoom);
-
-  for (let index = 0; index < 6; index += 1) {
-    await page.keyboard.press('Shift+ArrowLeft');
-  }
-  await page.waitForTimeout(400);
-  const afterPan = await readLighting(page);
-  expect(afterPan.cameraPosition).not.toEqual(afterZoom.cameraPosition);
-  assertLightingUnchanged(afterPan);
-
+  await page.waitForTimeout(900);
+  await waitForFlightIdle(page);
+  const beforeSelection = await readLighting(page);
   await page.locator('.body-pill', { hasText: 'ماه' }).click();
-  await page.waitForTimeout(1_800);
+  await page.waitForTimeout(300);
   const afterSelection = await readLighting(page);
-  expect(afterSelection.cameraPosition).not.toEqual(afterPan.cameraPosition);
+  expect(afterSelection.cameraPosition).toEqual(beforeSelection.cameraPosition);
   assertLightingUnchanged(afterSelection);
+
+  await page
+    .getByTestId('celestial-info-panel')
+    .getByRole('button', { name: 'فوکوس روی ماه' })
+    .click();
+  await page.waitForTimeout(700);
+  const afterFocus = await readLighting(page);
+  expect(afterFocus.cameraPosition).not.toEqual(afterSelection.cameraPosition);
+  assertLightingUnchanged(afterFocus);
 });
 
 for (const iso of DATES) {
