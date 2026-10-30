@@ -237,6 +237,86 @@ h3 {
   font-size: var(--text-sm);
 }
 
+.flight-pad {
+  position: absolute;
+  z-index: 11;
+  top: calc(var(--header-offset) + 54px);
+  inset-inline-end: 11px;
+  display: grid;
+  width: min(250px, calc(100vw - 22px));
+  gap: 9px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(7, 14, 27, 0.96);
+  box-shadow: var(--shadow-md);
+}
+
+.flight-pad__title {
+  color: var(--gold-strong);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+.flight-pad__grid,
+.flight-pad__roll {
+  display: grid;
+  gap: 6px;
+}
+
+.flight-pad__grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.flight-pad__roll {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.flight-pad__button {
+  min-height: var(--target-min);
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  font-family: var(--font);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.flight-pad__button:hover {
+  border-color: var(--gold-dim);
+}
+
+.flight-pad__button.is-active {
+  border-color: var(--gold);
+  color: var(--gold-strong);
+  background: var(--gold-dim);
+}
+
+.flight-pad__hint {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  text-align: center;
+  direction: ltr;
+}
+
+.info-panel__actions {
+  margin: 10px 0 2px;
+}
+
+.info-panel__focus {
+  display: flex;
+  width: 100%;
+  min-height: var(--target-min);
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+}
+
 .free-bottom {
   bottom: calc(var(--safe-bottom) + 12px);
   gap: 10px;
@@ -689,6 +769,27 @@ h3 {
 
   .free-top-actions .button svg {
     display: none;
+  }
+
+  .free-top-actions .flight-toggle {
+    width: var(--target-min);
+    padding: 0;
+    justify-content: center;
+  }
+
+  .free-top-actions .flight-toggle svg {
+    display: block;
+  }
+
+  .free-top-actions .flight-toggle span {
+    display: none;
+  }
+
+  .flight-pad {
+    top: calc(var(--header-offset) + 104px);
+    inset-inline-end: 11px;
+    max-height: calc(100dvh - var(--header-offset) - 126px);
+    overflow-y: auto;
   }
 
   .hint-bubble {

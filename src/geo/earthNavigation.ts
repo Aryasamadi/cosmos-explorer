@@ -2,9 +2,9 @@ const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
 
 export interface EarthNavigationSensitivity {
-  /** Multiplier consumed by OrbitControls for drag rotation. */
+  /** Multiplier for a full-height drag rotation at this altitude. */
   rotateSpeed: number;
-  /** Multiplier consumed by OrbitControls for wheel/pinch dolly. */
+  /** Relative dolly strength; the 6DOF controller scales impulses by surface gap. */
   zoomSpeed: number;
   /** Approximate angular width of the visible surface patch, in degrees. */
   visibleExtentDeg: number;
@@ -17,11 +17,10 @@ function clamp(value: number, min: number, max: number): number {
 /**
  * Altitude-aware navigation sensitivity.
  *
- * OrbitControls maps a full-height vertical drag to 2π * rotateSpeed radians
- * and uses clientHeight in its pixel conversion, so a viewport-independent
- * rotateSpeed is sufficient: pixels-per-degree scales with viewport height.
- * Near the surface the visible ground patch is tiny, so a drag must rotate by
- * a correspondingly tiny angle. The curve is continuous and bounded.
+ * A full-height drag maps to 2π * rotateSpeed radians, so pixels-per-degree
+ * scales with viewport height. Near the surface the visible ground patch is
+ * tiny, so a drag must rotate by a correspondingly tiny angle. The curve is
+ * continuous and bounded.
  */
 export function computeEarthNavigationSensitivity(
   cameraDistance: number,

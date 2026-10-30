@@ -126,6 +126,10 @@ test('M1+M2 integration stays intact across viewports and state cycles', async (
   await waitForMapReady(page);
 
   await page.locator('.body-pill', { hasText: 'زمین' }).click();
+  await page
+    .getByTestId('celestial-info-panel')
+    .getByRole('button', { name: 'فوکوس روی زمین' })
+    .click();
   await page.waitForTimeout(2600);
   await expect(pressedBody(page)).toHaveText('زمین');
   await expect(activeMapDetail(page)).toBeVisible();
@@ -136,6 +140,10 @@ test('M1+M2 integration stays intact across viewports and state cycles', async (
     .getByRole('button', { name: 'بستن اطلاعات' })
     .click();
   await page.locator('.body-pill', { hasText: 'ماه' }).click();
+  await page
+    .getByTestId('celestial-info-panel')
+    .getByRole('button', { name: 'فوکوس روی ماه' })
+    .click();
   await page.waitForTimeout(1800);
   await expect(pressedBody(page)).toHaveText('ماه');
   await page
@@ -144,6 +152,10 @@ test('M1+M2 integration stays intact across viewports and state cycles', async (
     .click();
 
   await page.locator('.body-pill', { hasText: 'زمین' }).click();
+  await page
+    .getByTestId('celestial-info-panel')
+    .getByRole('button', { name: 'فوکوس روی زمین' })
+    .click();
   await page.waitForTimeout(2600);
   await expect(pressedBody(page)).toHaveText('زمین');
   await expect(activeMapDetail(page)).toBeVisible();

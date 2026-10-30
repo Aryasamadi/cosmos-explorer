@@ -101,8 +101,9 @@ src/
 
 - `shared/`: تشخیص WebGL، حلقهٔ رندر قابل توقف در پس‌زمینه، آزادسازی geometry/material/texture.
 - `free/FreeExploreScene.ts`:
-  - مالک renderer، صحنه، دوربین، OrbitControls و چرخهٔ نابودی.
-  - focus نرم دوربین، انتخاب با raycast و بازگشت به نمای کلی.
+  - مالک renderer، صحنه، دوربین 6DOF و چرخهٔ نابودی.
+  - چرخش/حرکت مستقل با quaternion، focus اختیاری، انتخاب با raycast و بازگشت به
+    نمای کلی.
   - context lost/restore و pause هنگام hidden.
 - `free/earthSurfaceShader.ts`: مدل رنگ مشترک روز/شب/چراغ شهر برای کرهٔ پایه و
   کاشی‌های تصویر؛ آستانه‌ها با `subsolarPoint.ts` هم‌راستا هستند.
@@ -113,6 +114,9 @@ src/
   لایه تعریف می‌شود. بافت و هر شیء جغرافیایی در گروه چرخش مشترک زمین قرار دارند.
 - `free/physicalLighting.ts`: تبدیل جهت‌های `body→Sun` از frame علمی به frame
   شیدرها (محلی زمین برای Earth/OSM، world برای ماه/مریخ) بدون هیچ ورودی دوربین.
+- `free/freeFlight.ts`: کنترلر 6DOF؛ quaternion محلی برای yaw/pitch/roll، velocity با
+  شتاب/damping، حرکت افقی/عمودی/دید، clamp زمین و مقیاس حساسیت بر اساس فاصله از
+  نزدیک‌ترین سطح. target فقط برای LOD از جهت دید مشتق می‌شود و مرکز حرکت نیست.
 - `free/earthDetailGeometry.ts`: کرهٔ جزئی برای هر کاشی equirectangular با UV محلی و
   ریزبندی کافی برای قرار گرفتن بالای کرهٔ پایه.
 - `free/earthDetailLayer.ts`: استریم کاشی‌های تصویر NASA، LOD فضای صفحه، fade بدون
@@ -124,8 +128,8 @@ src/
   نام provider در React تکرار نمی‌شود. شفافیت برای fade/loading استفاده نمی‌شود.
   ریزبندی و شعاع لایه برای جدا نگه‌داشتن آن از کرهٔ پایه و کاشی‌های تصویر تنظیم شده‌اند.
 - `free/FreeExploreScene.ts` دوربین را در نمای نزدیک با near/far پویا و مسیر قوسی به
-  مکان جغرافیایی می‌برد، حساسیت OrbitControls را با ارتفاع تنظیم می‌کند، فاصله را
-  clamp می‌کند و دو لایهٔ کاشی را تنها پس از پایان fly-to و با ترتیب عمق
+  مکان جغرافیایی می‌برد، view target برای LOD را از quaternion دوربین مشتق می‌کند،
+  فاصله را clamp می‌کند و دو لایهٔ کاشی را تنها پس از پایان fly-to و با ترتیب عمق
   پایه < تصویر < OSM < نشانگر به‌روز می‌کند.
 - `sky/SkyScene.ts`:
   - گنبد و شبکهٔ ارتفاع/سمت، نشانه‌ها و برچسب‌های CSS2D.
@@ -168,7 +172,7 @@ UI هرگز مستقیم به `THREE` یا WebGL دسترسی ندارد؛ از 
                          ▼                         ▼
                  نشانگر + دایرهٔ دقت        focus دوربین (مسیر قوسی)
                                                    │
-دوربین نزدیک شد؟ ← OrbitControls                  ▼
+دوربین نزدیک شد؟ ← 6DOF (view target مشتق از quaternion)                  ▼
        │                                  زاویهٔ nadir و فاصله
        ▼                                           │
 selectEarthDetailTiles() / selectGlobeTiles() ← viewport/FOV/DPR

@@ -8,6 +8,10 @@ import {
 } from '../../app/format';
 import { DISPLAY_SCALE_NOTICE_FA } from '../../config/display';
 import { FreeExploreScene } from '../../engine/free/FreeExploreScene';
+import type {
+  RotationAxis,
+  TranslationAxis,
+} from '../../engine/free/freeFlight';
 import type { MapDetailStatus } from '../../engine/free/globeTiles';
 import type { EarthDetailStatus } from '../../engine/free/earthDetailLayer';
 import type { GeoLocation } from '../../geo/types';
@@ -16,10 +20,74 @@ import { OSM_RASTER_TILES } from '../../geo/tiles/tileProvider';
 import { useWebGLSupport } from '../../hooks/useWebGLSupport';
 import { CelestialInfoPanel } from '../celestial-info/CelestialInfoPanel';
 import { EarthLocationSheet } from './EarthLocationSheet';
-import { IconGlobe, IconInfo, IconPin, IconReset, IconTarget } from '../../components/Icons';
+import {
+  IconCompass,
+  IconGlobe,
+  IconInfo,
+  IconPin,
+  IconReset,
+  IconTarget,
+} from '../../components/Icons';
 import { SceneFallback } from '../../components/SceneFallback';
 
 type SceneStatus = 'loading' | 'ready' | 'error';
+type FlightHoldAction =
+  | { kind: 'translation'; axis: TranslationAxis }
+  | { kind: 'rotation'; axis: RotationAxis };
+
+function FlightHoldButton({
+  action,
+  label,
+  title,
+  onHoldChange,
+}: {
+  action: FlightHoldAction;
+  label: string;
+  title: string;
+  onHoldChange: (action: FlightHoldAction, active: boolean) => void;
+}) {
+  const [held, setHeld] = useState(false);
+
+  const start = (): void => {
+    setHeld(true);
+    onHoldChange(action, true);
+  };
+  const stop = (): void => {
+    setHeld(false);
+    onHoldChange(action, false);
+  };
+
+  return (
+    <button
+      type="button"
+      className={`flight-pad__button ${held ? 'is-active' : ''}`}
+      data-flight={`${action.kind}:${action.axis}`}
+      aria-label={label}
+      title={title}
+      aria-pressed={held}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        start();
+      }}
+      onPointerUp={stop}
+      onPointerCancel={stop}
+      onPointerLeave={stop}
+      onKeyDown={(event) => {
+        if (event.key === ' ' || event.key === 'Enter') {
+          event.preventDefault();
+          if (!held) start();
+        }
+      }}
+      onKeyUp={(event) => {
+        if (event.key === ' ' || event.key === 'Enter') stop();
+      }}
+      onBlur={stop}
+    >
+      {label}
+    </button>
+  );
+}
 
 const EMPTY_MAP_STATUS: MapDetailStatus = {
   phase: 'idle',
@@ -56,6 +124,7 @@ export function FreeExploreMode({ active }: { active: boolean }) {
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
   const [mapOverlayEnabled, setMapOverlayEnabled] = useState(true);
   const [scaleHelpOpen, setScaleHelpOpen] = useState(false);
+  const [flightPadOpen, setFlightPadOpen] = useState(false);
   const [mapStatus, setMapStatus] = useState<MapDetailStatus>(EMPTY_MAP_STATUS);
   const [earthDetailStatus, setEarthDetailStatus] = useState<EarthDetailStatus>(
     EMPTY_EARTH_DETAIL_STATUS,
@@ -101,6 +170,7 @@ export function FreeExploreMode({ active }: { active: boolean }) {
             scene.dispose();
             return;
           }
+          scene.installDiagnosticProbes();
           sceneRef.current = scene;
           setStatus('ready');
         })
@@ -137,12 +207,7 @@ export function FreeExploreMode({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (status !== 'ready') return;
-    if (!selectedBodyId) {
-      sceneRef.current?.selectBody(null);
-      return;
-    }
     sceneRef.current?.selectBody(selectedBodyId);
-    sceneRef.current?.focusBody(selectedBodyId);
   }, [selectedBodyId, status]);
 
   useEffect(() => {
@@ -166,6 +231,23 @@ export function FreeExploreMode({ active }: { active: boolean }) {
     },
     [dispatch],
   );
+
+  const handleFlightHold = useCallback(
+    (action: FlightHoldAction, active: boolean) => {
+      const scene = sceneRef.current;
+      if (!scene) return;
+      if (action.kind === 'translation') {
+        scene.setManualTranslation(action.axis, active);
+      } else {
+        scene.setManualRotation(action.axis, active);
+      }
+    },
+    [],
+  );
+
+  const handleFocusSelectedBody = useCallback(() => {
+    if (selectedBodyId) sceneRef.current?.focusBody(selectedBodyId);
+  }, [selectedBodyId]);
 
   const handleUseLocation = useCallback(
     (nextLocation: GeoLocation) => {
@@ -230,7 +312,7 @@ export function FreeExploreMode({ active }: { active: boolean }) {
     <section
       className="mode-panel free-mode"
       aria-label="کاوش آزاد"
-      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Home 0 1 2 3 4 + -"
+      aria-keyshortcuts="W A S D Q E Z C ArrowLeft ArrowRight ArrowUp ArrowDown Shift Home 0 1 2 3 4 + -"
       hidden={!active}
     >
       <div
@@ -330,7 +412,87 @@ export function FreeExploreMode({ active }: { active: boolean }) {
           <IconInfo size={18} />
           اطلاعات
         </button>
+        <button
+          type="button"
+          className="button button--glass flight-toggle"
+          aria-label="کنترل پرواز"
+          aria-expanded={flightPadOpen}
+          aria-controls="free-flight-controls"
+          onClick={() => {
+            setFlightPadOpen((value) => !value);
+            setHintVisible(false);
+          }}
+        >
+          <IconCompass size={18} />
+          <span>پرواز</span>
+        </button>
       </div>
+
+      {flightPadOpen ? (
+        <div
+          id="free-flight-controls"
+          className="flight-pad glass"
+          role="group"
+          aria-label="کنترل پرواز شش‌درجه‌آزادی"
+        >
+          <p className="flight-pad__title">پرواز آزاد</p>
+          <div className="flight-pad__grid">
+            <FlightHoldButton
+              action={{ kind: 'translation', axis: 'forward' }}
+              label="جلو"
+              title="حرکت به جلو (W)"
+              onHoldChange={handleFlightHold}
+            />
+            <FlightHoldButton
+              action={{ kind: 'translation', axis: 'back' }}
+              label="عقب"
+              title="حرکت به عقب (S)"
+              onHoldChange={handleFlightHold}
+            />
+            <FlightHoldButton
+              action={{ kind: 'translation', axis: 'left' }}
+              label="چپ"
+              title="حرکت به چپ (A)"
+              onHoldChange={handleFlightHold}
+            />
+            <FlightHoldButton
+              action={{ kind: 'translation', axis: 'right' }}
+              label="راست"
+              title="حرکت به راست (D)"
+              onHoldChange={handleFlightHold}
+            />
+            <FlightHoldButton
+              action={{ kind: 'translation', axis: 'up' }}
+              label="بالا"
+              title="حرکت به بالا (Q)"
+              onHoldChange={handleFlightHold}
+            />
+            <FlightHoldButton
+              action={{ kind: 'translation', axis: 'down' }}
+              label="پایین"
+              title="حرکت به پایین (E)"
+              onHoldChange={handleFlightHold}
+            />
+          </div>
+          <div className="flight-pad__roll">
+            <FlightHoldButton
+              action={{ kind: 'rotation', axis: 'rollLeft' }}
+              label="غلتش چپ"
+              title="غلتش دوربین به چپ (Z)"
+              onHoldChange={handleFlightHold}
+            />
+            <FlightHoldButton
+              action={{ kind: 'rotation', axis: 'rollRight' }}
+              label="غلتش راست"
+              title="غلتش دوربین به راست (C)"
+              onHoldChange={handleFlightHold}
+            />
+          </div>
+          <p className="flight-pad__hint">
+            WASD + Q/E · Shift سرعت · Z/C غلتش
+          </p>
+        </div>
+      ) : null}
 
       {mapStatus.phase === 'loading' ? (
         <div className="map-loading-chip" role="status">
@@ -342,7 +504,8 @@ export function FreeExploreMode({ active }: { active: boolean }) {
       <div className="free-bottom">
         {hintVisible ? (
           <div className="hint-bubble" role="status">
-            برای چرخش بکشید؛ برای جزئیات، یک جرم را لمس کنید.
+            بکشید تا نگاه بچرخد؛ با WASD/QE یا دکمهٔ «پرواز» جابه‌جا شوید و برای
+            جزئیات یک جرم را لمس کنید.
             <button
               type="button"
               className="hint-bubble__close"
@@ -430,6 +593,7 @@ export function FreeExploreMode({ active }: { active: boolean }) {
           mode="free"
           open={infoOpen}
           onClose={() => dispatch({ type: 'close-info' })}
+          onFocus={handleFocusSelectedBody}
         />
       ) : null}
 

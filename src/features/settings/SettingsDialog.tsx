@@ -38,16 +38,21 @@ export function SettingsDialog({
       <section className="settings-section">
         <h3>میانبرهای ناوبری</h3>
         <ul className="shortcut-list">
-          <li><span>چرخش دوربین</span><kbd>← ↑ ↓ →</kbd></li>
-          <li><span>جابه‌جایی صحنه</span><kbd>Shift + جهت</kbd></li>
-          <li><span>بزرگ‌نمایی / کوچک‌نمایی</span><kbd>+ / −</kbd></li>
+          <li><span>چرخش نگاه</span><kbd>← ↑ ↓ →</kbd></li>
+          <li><span>حرکت افقی</span><kbd>W A S D</kbd></li>
+          <li><span>حرکت عمودی</span><kbd>Q / E</kbd></li>
+          <li><span>غلتش دوربین</span><kbd>Z / C</kbd></li>
+          <li><span>افزایش سرعت</span><kbd>Shift</kbd></li>
+          <li><span>حرکت در راستای دید</span><kbd>Wheel / + −</kbd></li>
           <li><span>بازگشت به نمای کلی</span><kbd>Home</kbd></li>
           <li><span>انتخاب زمین / ماه / خورشید / مریخ</span><kbd>1 / 2 / 3 / 4</kbd></li>
         </ul>
         <p className="settings-text settings-text--muted">
           میانبرها فقط در «کاوش آزاد» و زمانی که focus روی ورودی یا dialog نیست فعال‌اند.
-          با ماوس بکشید و چرخ را بچرخانید؛ روی لمس، یک انگشت می‌چرخاند و دو انگشت
-          بزرگ‌نمایی/جابه‌جایی می‌کند.
+          کشیدن با دکمهٔ چپ نگاه را می‌چرخاند، کشیدن با دکمهٔ راست جابه‌جا می‌کند و
+          چرخ ماوس حرکت در راستای دید است. روی لمس، یک انگشت نگاه را می‌چرخاند؛
+          دو انگشت جابه‌جایی/تغییر فاصله می‌دهند. پنل «پرواز» دکمه‌های نگه‌داشتنی
+          حرکت و غلتش را برای صفحه‌های کوچک دارد.
         </p>
       </section>
 

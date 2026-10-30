@@ -72,6 +72,43 @@ describe('CelestialInfoPanel', () => {
     expect(within(panel).getByText(/زیر افق است/)).toBeInTheDocument();
   });
 
+  it('offers an optional free-mode focus command without closing the panel', async () => {
+    const user = userEvent.setup();
+    const onFocus = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <CelestialInfoPanel
+        body={moon}
+        mode="free"
+        open
+        onClose={onClose}
+        onFocus={onFocus}
+      />,
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'فوکوس روی ماه' }),
+    );
+    expect(onFocus).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByTestId('celestial-info-panel')).toBeInTheDocument();
+  });
+
+  it('does not expose a free-focus command in sky mode', () => {
+    render(
+      <CelestialInfoPanel
+        body={sun}
+        mode="sky"
+        open
+        onClose={() => {}}
+        onFocus={() => {}}
+        position={aboveHorizon}
+      />,
+    );
+    expect(
+      screen.queryByRole('button', { name: /فوکوس روی/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it('closes through its labelled button', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

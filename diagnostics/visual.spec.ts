@@ -69,6 +69,10 @@ test.describe('initial view 390 mobile', () => {
     await prepare(page);
     await page.locator('.body-pill', { hasText: 'ماه' }).click();
     await expect(page.getByTestId('celestial-info-panel')).toBeVisible();
+    await page
+      .getByTestId('celestial-info-panel')
+      .getByRole('button', { name: 'فوکوس روی ماه' })
+      .click();
     await page.getByTestId('celestial-info-panel').getByRole('button', { name: 'بستن اطلاعات' }).click();
     await page.waitForTimeout(1800);
     await expect(page).toHaveScreenshot('moon-390.png');
@@ -78,6 +82,10 @@ test.describe('initial view 390 mobile', () => {
     await prepare(page, '2026-09-23T00:00:00.000Z');
     await page.locator('.body-pill', { hasText: 'ماه' }).click();
     await expect(page.getByTestId('celestial-info-panel')).toBeVisible();
+    await page
+      .getByTestId('celestial-info-panel')
+      .getByRole('button', { name: 'فوکوس روی ماه' })
+      .click();
     await page.getByTestId('celestial-info-panel').getByRole('button', { name: 'بستن اطلاعات' }).click();
     await page.waitForTimeout(1800);
     await expect(page).toHaveScreenshot('moon-gibbous-390.png');
@@ -87,9 +95,23 @@ test.describe('initial view 390 mobile', () => {
     await prepare(page);
     await page.locator('.body-pill', { hasText: 'مریخ' }).click();
     await expect(page.getByTestId('celestial-info-panel')).toBeVisible();
+    await page
+      .getByTestId('celestial-info-panel')
+      .getByRole('button', { name: 'فوکوس روی مریخ' })
+      .click();
     await page.getByTestId('celestial-info-panel').getByRole('button', { name: 'بستن اطلاعات' }).click();
     await page.waitForTimeout(1800);
     await expect(page).toHaveScreenshot('mars-390.png');
+  });
+
+  test('flight-pad-390', async ({ page }) => {
+    await prepare(page);
+    await page.getByRole('button', { name: 'کنترل پرواز' }).click();
+    await expect(
+      page.getByRole('group', { name: 'کنترل پرواز شش‌درجه‌آزادی' }),
+    ).toBeVisible();
+    await page.waitForTimeout(300);
+    await expect(page).toHaveScreenshot('flight-pad-390.png');
   });
 
   test('location-sheet-390', async ({ page }) => {
